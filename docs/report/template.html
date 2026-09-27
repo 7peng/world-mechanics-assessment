@@ -143,39 +143,39 @@ footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--rule);font-si
 <header class="hero">
   <div class="eyebrow">world-mechanics · Part 1 · frozen V-JEPA 2 ViT-L/16, 256 px</div>
   <h1>Kinematics Inside V-JEPA 2</h1>
-  <p class="lede">Where does a frozen video encoder represent a moving disk's direction, speed and acceleration, how many dimensions does each take, and can it be steered? We reproduce the probing, nullspace and steering methods of Joseph et al. (arXiv 2602.07050) on the supplied synthetic clips. We ran each experiment twice, once with our own protocol and once with the paper's protocol as literally as its text allows.</p>
+  <p class="lede">Where does a frozen video encoder represent a moving disk's direction, speed and acceleration, how many dimensions does each take, and can it be steered? We reproduce the probing, nullspace and steering methods of Joseph et al. (arXiv 2602.07050) on the supplied synthetic clips. Layer-wise probing, nullspace probing and direction steering were each run twice: once with our own protocol, and once with the paper's protocol as literally as its text allows. The propagation and confound analyses use our protocol only.</p>
 </header>
 
 <section id="summary">
   <h2>Summary</h2>
   <ul class="findings">
-    <li><span class="tag">A</span><div><b>All three variables are linearly decodable from the first transformer block.</b> Our ridge probe gets R² 0.86 for <span class="var dir">direction</span> and 0.98 for <span class="var spd">speed</span> and <span class="var acc">acceleration</span>. The paper's own probe protocol gets 0.67, 0.87 and 0.82 at the same block. A randomly initialised V-JEPA scores 0.84–0.93, so on these clips one attention block over mean-pooled tokens already exposes the motion.</div></li>
-    <li><span class="tag">B</span><div><b>Direction improves gradually with depth, with no sharp jump at the paper's layer 8.</b> Error falls from 11° to 3.5° by our layer 12. The paper's own appendix (C.5, Fig. 18a) says mean-pooled direction also "improves more gradually" in their data; its sharp transition is in per-patch probes, which we have not run yet. Early-layer scores depend strongly on probe type and training-set size.</div></li>
-    <li><span class="tag">C</span><div><b>Each variable spans tens of dimensions.</b> Nullspace probing needs about 50–60 removed dimensions before R² drops below 0.3, the same order as the paper. Removing random directions does nothing. Removing the top 4–13 principal components wipes decoding out. Redundancy drops sharply between our layers 7 and 8.</div></li>
-    <li><span class="tag">D</span><div><b>Paper-style steering reproduces at the layer where it is applied.</b> Following the paper's C.12 procedure, the error to a 90° target falls from about 79° with 1 probe to 15° with 20 (7° with 224-px input). The paper reports 11.9°.</div></li>
-    <li><span class="tag">E</span><div><b>The steering does not survive later layers.</b> After the same edit is written into every token and the network runs on, direction error to target goes 4° → 25° → 45° → 73° within three blocks. The injected shift is actively cancelled: about half of it is gone after one block.</div></li>
-    <li><span class="tag">F</span><div><b>"Acceleration" is mostly displacement.</b> Applied to constant-velocity clips, where the true acceleration is 0, the acceleration probe predicts 6.8 m/s² on average and tracks how far the disk travelled with r = 0.993. The paper's datasets have the same confound.</div></li>
+    <li><span class="tag">A</span><div><b>All three variables are linearly decodable from the first transformer block.</b> At our layer 1, our ridge probe gets test R² 0.85 for <span class="var dir">direction</span> and 0.98 for <span class="var spd">speed</span> and <span class="var acc">acceleration</span>. The paper's protocol on the same data gets 0.66, 0.88 and 0.82 at that block. A randomly initialised V-JEPA gets 0.83, 0.93 and 0.91, so on these clips one attention block over mean-pooled tokens already exposes the motion.</div></li>
+    <li><span class="tag">B</span><div><b>Direction shows no step at the paper's layer 8.</b> The paper's pooled direction curve jumps from about 0.5 to 0.93 at its layer 8 (Fig. 2c). On our data, direction error falls smoothly: 12° at our layer 1, 4.3° at layer 9, 3.1–3.6° from layer 13 on. Low early scores like the paper's appear only with very little data and a gradient-trained probe that has not converged. With 96 clips that probe gets R² 0.31 at layer 1, or 0.57 with 10× more epochs, against 0.63 for ridge. Even then the rise is complete by our layer 6, three blocks before the paper's layer 8.</div></li>
+    <li><span class="tag">C</span><div><b>Each variable spans tens of dimensions.</b> With our protocol at layer 12, R² falls below 0.3 after removing 58 dimensions for direction, 51 for speed and 48 for acceleration. With the paper's protocol at its layer 8, the stopping rule is hit after a median of 60 direction probes (120 dimensions) and 44 speed probes, against the paper's ≈44 and ≈28. Removing random directions does nothing; removing the top 4–13 principal components collapses decoding.</div></li>
+    <li><span class="tag">D</span><div><b>Paper-style steering reproduces at the layer where it is applied.</b> Averaged over three train/test splits, the error to a 90° target falls from 76° with 1 probe to 8° with 20 probes (6° at 224 px). The paper reports 11.9°. The result depends on the split: 3.5–14° at 20 probes.</div></li>
+    <li><span class="tag">E</span><div><b>Downstream, the steering mostly fades.</b> We added the same edit to every token at our layer 12 and let the network run on. Direction error to target then goes 4° → 25° → 45° → 73° within three blocks, ending at 85° (a random edit gives 90°). Speed and acceleration keep part of the effect. The edit is not specially cancelled: along its own direction it decays about as fast as a real clip-to-clip difference, while a random edit decays faster.</div></li>
+    <li><span class="tag">F</span><div><b>"Acceleration" is mostly displacement.</b> We applied the acceleration probe to constant-velocity clips, whose true acceleration is 0. It predicts 6.8 m/s² on average and tracks how far the disk travelled with r = 0.993. The paper's datasets are built the same way.</div></li>
   </ul>
 </section>
 
 <section id="data">
   <span class="num">DATA</span>
   <h2>The data</h2>
-  <p>Each clip is 16 frames at 24 fps, 0.67 s in total, at 256×256 px. A single disk moves on a dark background. The clips below are from the held-out test split, shown at native resolution and looping. The disk decodes as orange, although <code>DATA.md</code> says blue; this is probably a colour-channel swap at render time. Frames are fed to the model as decoded.</p>
+  <p>Each clip is 16 frames at 24 fps, 256×256 px: 0.625 s from the first frame to the last. A single disk moves on a dark background. The clips below are from the held-out test split, shown at native resolution and looping. The disk decodes as orange, although <code>DATA.md</code> says blue; this is probably a colour-channel swap at render time. Frames are fed to the model as decoded.</p>
   <div class="videos" id="videos"></div>
   <div class="tablewrap"><table>
     <thead><tr><th>Set</th><th class="num">Clips</th><th>Primary label</th><th>What else varies</th></tr></thead>
     <tbody>
-      <tr><td><span class="var dir">direction</span></td><td class="num">1,500</td><td>θ: 64 values, 5.625° apart, ~23 clips each</td><td>Half constant velocity (1–7 m/s), half accelerating from rest (2–10 m/s²); start position in [−2, 2]² m. 7.5% of clips leave the frame entirely.</td></tr>
+      <tr><td><span class="var dir">direction</span></td><td class="num">1,500</td><td>θ: 64 values, 5.625° apart, ~23 clips each</td><td>Half constant velocity (1–7 m/s), half accelerating from rest (2–10 m/s²); start position in [−2, 2]² m. In 113 clips (7.5%) the disk leaves the frame entirely; in 179 (11.9%) it is at least partly cut off.</td></tr>
       <tr><td><span class="var spd">speed</span></td><td class="num">1,536</td><td>64 speeds, 0.25–4.0 m/s, 24 clips each</td><td>θ uniform over 64 values; acceleration 0; always in frame</td></tr>
-      <tr><td><span class="var acc">acceleration</span></td><td class="num">1,536</td><td>64 accelerations, 0.25–9.85 m/s², 24 clips each</td><td>θ uniform; starts at rest; always in frame</td></tr>
+      <tr><td><span class="var acc">acceleration</span></td><td class="num">1,536</td><td>64 accelerations, 0.25–10.0 m/s², 24 clips each</td><td>θ uniform; starts at rest; always in frame</td></tr>
     </tbody>
   </table></div>
-  <p>We checked the labels against the disk's measured centroid trajectory. The scale is 32.1 px per metre, the same as the paper's overhead camera 10 m above an 8×8 m floor, and the median direction error is about 1°. Within each dataset, the distance the disk travels in 0.67 s is set by the label:</p>
+  <p>We checked the labels against the disk's measured centroid trajectory. The scale is 32.0 px per metre, which matches an 8 m floor spanning the 256-px frame. The paper's camera sits 10 m above an 8×8 m floor, but it does not give the field of view, so the match with its scale is an inference. The trajectory's fitted direction is within 1–2° of the label (median). Within each dataset, the distance the disk travels over the clip is set by the label:</p>
   <figure>
     <div class="legend" id="lg-disp"></div>
     <div class="panels" id="p-disp"></div>
-    <figcaption><b>Distance travelled over the clip, by label value</b> (mean over 24 clips). Distance grows linearly with speed and with acceleration (½·a·t² from rest). At the low end the disk barely moves: 8 px at 0.25 m/s and 2 px at 0.25 m/s², against a disk about 22 px across.</figcaption>
+    <figcaption><b>Distance travelled over the clip, by label value</b> (mean over 24 clips). Distance grows linearly with speed and with acceleration (½·a·t² from rest). At the low end the disk barely moves: 5 px at 0.25 m/s and 2 px at 0.25 m/s², against a disk about 22 px across. Positions are quantised to whole pixels, so slow clips move in jumps.</figcaption>
   </figure>
 </section>
 
@@ -224,9 +224,9 @@ footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--rule);font-si
   </svg>
   </div>
   <dl class="kv">
-    <dt>Preprocessing</dt><dd>The HF processor's default resizes to 292 px and centre-crops to 256, which would cut about 7% off each border and could clip the disk. The clips are already 256², so we only rescale and normalise.</dd>
-    <dt>224-px variant</dt><dd>The paper's App. C.6 describes 224×224 input (1,568 tokens). We ran every paper-protocol experiment at both 256 px (native checkpoint) and 224 px (bicubic resize of the full frame).</dd>
-    <dt>Controls</dt><dd>A randomly initialised V-JEPA 2 with the same architecture; raw pixels (red channel, 32×32 per frame, linear); the disk's centroid trajectory with degree-2 polynomial features.</dd>
+    <dt>Preprocessing</dt><dd>The HF processor's default resizes to 292 px and centre-crops to 256, which would cut about 6% off each border and could clip the disk. The clips are already 256², so we only rescale and normalise.</dd>
+    <dt>224-px variant</dt><dd>The paper's App. C.6 describes 224×224 input (1,568 tokens). We ran every paper-protocol experiment at both 256 px (native checkpoint) and 224 px (bicubic resize of the full frame). The HF implementation derives the RoPE position grid from the config (16×16), not from the input, so at 224 px we set it to 14×14 on every layer. Without that fix, token positions are scrambled; our first 224-px run had this bug.</dd>
+    <dt>Controls</dt><dd>A randomly initialised V-JEPA 2 with the same architecture (HF default initialisation); raw pixels (red channel, 32×32 per frame, linear); the disk's centroid trajectory and visible-area fraction, with degree-2 polynomial features.</dd>
   </dl>
 </section>
 
@@ -239,20 +239,20 @@ footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--rule);font-si
     <thead><tr><th>Aspect</th><th>Ours</th><th>Paper protocol, as run</th></tr></thead>
     <tbody>
       <tr><td class="aspect">Datasets</td><td>Supplied direction, speed and acceleration sets</td><td>Same supplied sets <span class="pill assumed">our choice</span><br><span style="color:var(--muted);font-size:14px">Paper used its own Kubric sets: 392 constant-velocity videos (8 θ × 7 speeds × 7 starts) and 280 acceleration videos (8 θ × 5 accelerations × 7 starts)</span></td></tr>
-      <tr><td class="aspect">Layers</td><td>Patch embedding + 24 block outputs</td><td>Block outputs 0–23 <span class="pill stated">stated</span></td></tr>
+      <tr><td class="aspect">Layers</td><td>Patch embedding + 24 block outputs</td><td>"Each layer ℓ ∈ {0,…,n−1}" <span class="pill stated">stated</span>. We read ℓ as the output of block ℓ <span class="pill assumed">our choice</span>. Steering is also run under the other reading, where ℓ = 0 is the patch embedding.</td></tr>
       <tr><td class="aspect">Pooling</td><td>Mean over all space-time tokens</td><td>"Spatiotemporally pooled" <span class="pill stated">stated</span></td></tr>
       <tr><td class="aspect">Features</td><td>z-scored with train statistics</td><td>Raw <span class="pill assumed">our choice</span></td></tr>
       <tr><td class="aspect">Probe</td><td>Closed-form ridge, 15 α values from 10⁻² to 10⁵</td><td>Linear f(h)=Wh+b trained by gradient descent <span class="pill stated">stated</span>; AdamW, batch 32, 100 epochs (direction) or 50 (speed, acceleration), nn.Linear init <span class="pill assumed">our choice</span></td></tr>
       <tr><td class="aspect">Hyper-parameters</td><td>α chosen on the val split</td><td>lr {1e-4, 3e-4, 1e-3, 3e-3, 5e-3} × weight decay {0.01, 0.1, 0.4, 0.8}, "best model based on validation performance" <span class="pill stated">stated</span></td></tr>
       <tr><td class="aspect">Split (probing)</td><td>60 / 20 / 20 train / val / test, stratified by label value; test used only for reported numbers. 5-fold CV checked separately and agrees.</td><td>5-fold grouped CV, mean ± sd <span class="pill stated">stated</span>; groups = label combination <span class="pill assumed">our choice</span>. Config selected on the reported fold <span class="pill leak">split issue</span>; we also report a nested version.</td></tr>
       <tr><td class="aspect">Targets</td><td>(sin θ, cos θ); speed and acceleration in SI units</td><td>(sin θ, cos θ), MSE <span class="pill stated">stated</span>; R² averaged over the two outputs <span class="pill assumed">our choice</span></td></tr>
-      <tr><td class="aspect">Nullspace probing</td><td>Ridge per step; z-scored once; each new direction orthogonalised against all earlier ones; train fit, val-selected α, test R² reported. Layer 12, chosen on val.</td><td>Adam, lr 1e-3, weight decay 1e-4, 100 or 50 epochs, 80/20 split, Q = QR(Wᵀ), X ← X − XQQᵀ <span class="pill stated">stated</span>; stop at direction R² &lt; 0.1 or MAE &gt; 80°, speed R² &lt; 0.05 <span class="pill stated">stated</span>. The same 20% sets both the curve and the stopping point <span class="pill leak">split issue</span></td></tr>
-      <tr><td class="aspect">Steering</td><td>INLP subspace from train; steer test clips to 8 targets; read out with a probe fit on the val split ("strict") or on test ("paper"); matched-norm random control; also propagated through later blocks</td><td>70/30 split; 25 orthogonal probes on train; V = QR([W₁ᵀ…W_Kᵀ]); x* = Vc* + x⊥ with c* by least squares; θ* = 90°; paper layer 8 <span class="pill stated">stated</span>. Evaluation probe trained on the clean test activations <span class="pill leak">split issue</span></td></tr>
+      <tr><td class="aspect">Nullspace probing</td><td>Ridge per step; z-scored once; each new direction orthogonalised against all earlier ones; train fit, val-selected α, test R² reported. Layer 12, chosen on val.</td><td>Adam, lr 1e-3, weight decay 1e-4, 100 or 50 epochs, 80/20 split, Q = QR(Wᵀ), X ← X − XQQᵀ <span class="pill stated">stated</span>; stop at direction R² &lt; 0.1 or MAE &gt; 80°, speed R² &lt; 0.05 or MAE &gt; 90% of a baseline <span class="pill stated">stated</span>. Baseline = constant-mean predictor, acceleration uses the speed rule, 3 seeds with the median reported, own minibatch order per layer <span class="pill assumed">our choice</span>. The same 20% sets both the curve and the stopping point <span class="pill leak">split issue</span></td></tr>
+      <tr><td class="aspect">Steering</td><td>INLP subspace from train; steer test clips to 8 targets; read out with a probe fit on the val split ("strict") or on test ("paper"); matched-norm random control; also propagated through later blocks</td><td>70/30 split; 25 orthogonal probes on train; V = QR([W₁ᵀ…W_Kᵀ]); x* = Vc* + x⊥ with c* by least squares; θ* = 90°; paper layer 8 <span class="pill stated">stated</span>. Three random splits <span class="pill assumed">our choice</span>. Evaluation probe trained on the clean test activations <span class="pill leak">split issue</span></td></tr>
     </tbody>
   </table></div>
   <div class="callout warn">
     <div class="h">How clean is the paper's split?</div>
-    <p>Only partly. In layer-wise probing, the literal reading of App. B picks the best of 20 configurations on the same fold it reports. In practice this inflated R² by at most 0.01 here, because the nested version gives almost the same curve. Nullspace probing has no separate test set. In steering, the steering subspace comes from train, but the evaluation probe is trained on the test clips it then reads.</p>
+    <p>Only partly. In layer-wise probing, the literal reading of App. B picks the best of 20 configurations on the same fold it reports. In practice the inflation is small here: the nested version is at most 0.028 lower. Nullspace probing has no separate test set. In steering, the steering subspace comes from train, but the evaluation probe is trained on the test clips it then reads.</p>
   </div>
 </section>
 
@@ -282,11 +282,11 @@ footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--rule);font-si
     </div>
     <div class="legend" id="lg-proto"></div>
     <div class="panel"><div class="chart" id="c-proto"></div></div>
-    <figcaption><b>Direction R² by probe type.</b> A gradient-trained probe on raw features (the paper's setup) roughly halves the block-1 score. With 96 clips it starts at 0.27, close to the paper's 0.22, and climbs to about 0.9 by our layer 6. The jump never lands on the paper's layer 8 (our 9). Standardising features removes most of the gap.</figcaption>
+    <figcaption><b>Direction R² by probe type (5-fold CV).</b> On the full set, ridge on raw and on standardised features agree. The paper-style gradient probe scores 0.66 at layer 1 (0.72 with 1,000 epochs), against 0.87 for ridge. On the 96-clip subset it scores 0.31 (0.57 with 1,000 epochs), against 0.63 for ridge. So with little data, the paper-style probe is held back by its training budget and weight decay, not by what the features contain. In every setting the rise is complete by our layer 6 (their 5), before the paper's layer 8.</figcaption>
   </figure>
   <div class="callout">
     <div class="h">Reading the paper directly</div>
-    <p>App. C.5, p. 26: "direction-related signals are already present in early layers, but remain tightly coupled to specific spatial locations … Mean-pooled probes can nevertheless achieve modest performance by linearly combining these fragmented signals … per-patch probe performance rises abruptly at the emergence zone, while mean-pooled performance improves more gradually." Our mean-pooled results agree with this. The sharp claim to test next is per-patch probing (their Fig. 18a, c).</p>
+    <p>App. C.5, p. 26: "direction-related signals are already present in early layers, but remain tightly coupled to specific spatial locations … Mean-pooled probes can nevertheless achieve modest performance by linearly combining these fragmented signals … per-patch probe performance rises abruptly at the emergence zone, while mean-pooled performance improves more gradually."</p><p>"More gradually" is relative to the per-patch probes. The paper's pooled curves still step at layer 8: Fig. 2c goes from about 0.5 to 0.93, and Fig. 18a's pooled curve from about 0.47 to 0.85. We see no such step, so this is a real difference between the two setups. Per-patch probing is the next test.</p>
   </div>
 </section>
 
@@ -350,7 +350,7 @@ footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--rule);font-si
     <path d="M202 60 H240" class="line" marker-end="url(#ah3)"/>
     <rect x="244" y="20" width="290" height="80" rx="8" class="hl"/>
     <text x="389" y="46" text-anchor="middle" font-weight="600">Clamp inside V</text>
-    <text x="389" y="67" class="small" text-anchor="middle">c* = least squares: all N probes read θ*</text>
+    <text x="389" y="67" class="small" text-anchor="middle">c*: least squares, all N probes read θ*</text>
     <text x="389" y="84" class="small" text-anchor="middle">x* = V c* + x⊥</text>
     <path d="M536 60 H574" class="line" marker-end="url(#ah3)"/>
     <rect x="578" y="20" width="392" height="80" rx="8" class="box"/>
@@ -373,8 +373,9 @@ footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--rule);font-si
     <div class="panels" id="p-steer"></div>
     <figcaption><b>Mean error of the decoded value to the target, held-out test clips.</b> Direction compares four runs:<br>• our protocol at layer 12, 8 targets, strict read-out;<br>• the paper protocol at paper layer 8, target 90°, at 256 px and 224 px;<br>• the paper's Fig. 24, read off the plot.<br>The grey line is a random edit with the same norm in a random subspace of the same size. Speed and acceleration show our protocol only; the paper steers direction only.</figcaption>
   </figure>
+  <p>In no split did the paper's steering-probe sequence reach R² &lt; 0.1 within 25 probes; the lowest was 0.80–0.83 at 256 px. The paper reports reaching it.</p>
   <div class="tablewrap"><table>
-    <thead><tr><th>Direction, target 90°</th><th class="num">N=1</th><th class="num">2</th><th class="num">3</th><th class="num">5</th><th class="num">10</th><th class="num">15</th><th class="num">20</th><th class="num">no steer</th></tr></thead>
+    <thead><tr><th>Direction, target 90° (mean of 3 splits)</th><th class="num">N=1</th><th class="num">2</th><th class="num">3</th><th class="num">5</th><th class="num">10</th><th class="num">15</th><th class="num">20</th><th class="num">no steer</th></tr></thead>
     <tbody id="t-steer"></tbody>
   </table></div>
   <p>Steering is specific. Steering speed or acceleration leaves the θ read-out of the same clips unchanged up to about 20 probes (5.2° clean vs 5.6° steered for speed). At 100 probes it degrades, to 17.6° for speed and 33.8° for acceleration, because the subspace starts to take in shared dimensions.</p>
@@ -382,19 +383,19 @@ footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--rule);font-si
   <figure class="wide">
     <div class="legend" id="lg-prop"></div>
     <div class="panels" id="p-prop"></div>
-    <figcaption><b>Error to target at each downstream read-out layer after steering at layer 12.</b> The edit works at layer 12 and is gone within about three blocks. By layer 24 it is near the random-edit control. The dashed line is the unsteered probe error, the best any read-out can do.</figcaption>
+    <figcaption><b>Error to target at each downstream read-out layer after steering at layer 12.</b> Read-out probes are fit on clean val clips at each layer. Direction loses the effect within three blocks and ends near the random-edit control. Speed and acceleration keep part of it: at layer 24, 1.13 m/s against 1.35 m/s for a random edit, and 2.96 against 3.50 m/s². The dashed line is the unsteered probe error, the best any read-out can do.</figcaption>
   </figure>
   <figure>
     <div class="legend" id="lg-persist"></div>
     <div class="panels" id="p-persist"></div>
-    <figcaption><b>How much of the injected shift Δ survives.</b> This is the fraction of Δ still pointing along its own direction in the pooled residual stream, (steered − clean)·Δ / ‖Δ‖², with N = 20 and 32 test clips per variable. The residual connection alone would keep it at 1.0. Instead the blocks write back about −Δ, so the model actively undoes the edit. Our reading: the pooled probe subspace is a faithful read-out of the layer-12 state but not a lever later blocks use; they appear to recompute motion from where the disk tokens are.</figcaption>
+    <figcaption><b>How much of an injected shift survives along its own direction.</b> Measured as (steered − clean)·Δ / ‖Δ‖² in the pooled residual stream, over 32 test clips. Three kinds of Δ are compared:<br>• the steering edit (N = 20);<br>• a real difference between two clips, injected the same way;<br>• a random edit of equal norm.<br>The steering edit decays about as fast as a real clip difference (7–10% left at layer 24, against 8–11%); the random edit decays faster (2%). In a code review the steering result held at 5% of the edit size, so it is not an out-of-range effect. The network does not single out the steering edit; it attenuates and rotates offsets in the pooled state generally. Probes fit on clean data at later layers then do not read the target.</figcaption>
   </figure>
 </section>
 
 <section id="confound">
   <span class="num">CONTROL</span>
   <h2>Displacement confound</h2>
-  <p>The speed set has no acceleration and the acceleration set always starts from rest. Within each set, the distance travelled over 0.67 s determines the label, so a probe can succeed by reading where the disk ends up. To test this, we applied the layer-12 acceleration probe to the <span class="var spd">speed</span> clips, whose true acceleration is 0.</p>
+  <p>The speed set has no acceleration and the acceleration set always starts from rest. Within each set, the distance travelled over the clip determines the label, so a probe can succeed by reading where the disk ends up. To test this, we applied the layer-12 acceleration probe to the <span class="var spd">speed</span> clips, whose true acceleration is 0.</p>
   <div class="tablewrap"><table>
     <thead><tr><th>Acceleration probe applied to constant-velocity clips</th><th class="num">Value</th></tr></thead>
     <tbody>
@@ -410,11 +411,12 @@ footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--rule);font-si
   <span class="num">NEXT</span>
   <h2>Limits and next steps</h2>
   <ul class="plain">
-    <li><b>Per-patch probes.</b> This is where the paper's sharp transition lives (Fig. 18a, c), and we have not run it yet.</li>
+    <li><b>Per-patch probes.</b> This is where the paper's appendix places its sharpest transition (Fig. 18a, c), and we have not run it yet.</li>
     <li><b>Training-set size sweep.</b> Probe R² by layer at 77, 150, 314 and 600 training clips would show directly how much early-layer decodability depends on data.</li>
     <li><b>Acceleration test with distance matched.</b> Use the mixed direction set to classify motion type when distance travelled is matched.</li>
-    <li><b>Stronger steering.</b> Add Δ only to disk tokens, re-apply at every layer, or steer later in the network, to find an edit the model does not undo.</li>
-    <li><b>Differences from the paper that remain.</b> Our stimulus is flat 2D (theirs is a shaded 3D sphere on a textured floor); we use 64 directions (theirs 8); some protocol details are unspecified (epochs, batch size, feature scaling, CV groups). Paper reference values were read off plots and are approximate.</li>
+    <li><b>Stronger steering.</b> Add Δ only to disk tokens, re-apply at every layer, or steer later in the network, to find an edit that later probes read.</li>
+    <li><b>Variance.</b> Paper-protocol steering varies strongly with the train/test split (3.5–14° at 20 probes), and nullspace counts vary by about ±5–10 probes across seeds. Our own protocol uses one split; more splits would tighten the numbers.</li>
+    <li><b>Differences from the paper that remain.</b> Our stimulus is flat 2D (theirs is a shaded 3D sphere on a textured floor); we use 64 directions (theirs 8); some protocol details are unspecified (epochs, batch size, feature scaling, CV groups, layer indexing). Paper values were read off plots and are approximate. The paper's own counts are inconsistent: Fig. 22 gives about 44 direction probes at layer 8, and Table 3 gives 136 dimensions (68 probes).</li>
   </ul>
 </section>
 
@@ -426,16 +428,18 @@ footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--rule);font-si
 uv run python scripts/check_videos.py                 # label checks, centroids, montages
 uv run python scripts/extract_features.py             # 25 depths, mean + per-time-step pools
 uv run python scripts/extract_features.py --random-init
-uv run python scripts/extract_features.py --size 224
+uv run python scripts/extract_features.py --size 224  # RoPE grid set to 14×14
 uv run python scripts/baseline_features.py            # pixel + centroid baselines
 uv run python scripts/probe_layers.py                 # Exp 1, our protocol
 uv run python scripts/run_inlp.py                     # Exp 2, our protocol
 uv run python scripts/steer_pooled.py                 # Exp 3A, our protocol
 uv run python scripts/steer_propagate.py --dataset direction   # Exp 3B (also speed, acceleration)
-uv run python scripts/diag_persistence.py
+uv run python scripts/diag_persistence.py             # persistence, with baselines
 uv run python scripts/probe_protocol_check.py         # probe type × data regime
 uv run python scripts/paper_protocol.py --features vjepa2       # paper protocol, 256 px
-uv run python scripts/paper_protocol.py --features vjepa2_224   # paper protocol, 224 px</pre>
+uv run python scripts/paper_protocol.py --features vjepa2_224   # paper protocol, 224 px
+uv run python scripts/sanity_checks.py                # label checks, confound, CV
+uv run python scripts/build_report.py                 # this page</pre>
 </section>
 
 <footer>Numbers are on held-out data unless marked. Paper values are from Joseph et al., "Interpreting Physics in Video World Models", arXiv 2602.07050, read directly from the PDF; figure values are approximate.</footer>
@@ -527,7 +531,7 @@ function drawDisp(){
   legend(document.getElementById('lg-disp'),[{name:'mean distance travelled over the clip (px)',color:css('--ink2'),multi:true},{name:'disk diameter ≈ 22 px',color:css('--neutral'),dash:'2 3'}]);
   [['speed','m/s',[0,1,2,3,4]],['acceleration','m/s²',[0,2,4,6,8,10]]].forEach(([n,u,xt])=>{
     const c=panel(host,n); const d=D.disp[n];
-    lineChart(c,{x:[0,n==='speed'?4.1:10.1],y:[0,70],yt:[0,20,40,60],xt,xl:`${n} label (${u})`,yl:'px',xname:n,
+    lineChart(c,{x:[0,n==='speed'?4.1:10.1],y:[0,85],yt:[0,20,40,60,80],xt,xl:`${n} label (${u})`,yl:'px',xname:n,
       series:[{name:'mean distance travelled',color:css(VAR[n]),pts:d.x.map((x,i)=>[+x.toFixed(3),d.y[i]]),markers:true,r:2}],
       hlines:[{v:22,color:css('--neutral')}],vfmt:v=>v.toFixed(1)+' px',h:220});
   });
@@ -548,13 +552,13 @@ function drawLayers(){
       {name:'raw pixels',color:css('--neutral'),dash:'1 3'},
       {name:'centroid trajectory',color:css('--neutral'),dash:'6 3 1 3'},
       {name:'paper Fig. 2c (approx.)',color:css('--paper'),dot:true,hollow:true}]);
-    document.getElementById('cap-layers').innerHTML='<b>Test R² by depth.</b> The shaded band is the 95% bootstrap CI for our probe. Paper-protocol curves are 5-fold CV means with config selection as written. The nested version differs by at most 0.03. Layer 0, the mean-pooled patch embedding, carries almost nothing, because mean-pooling a linear map of pixels gives roughly the mean pixel.';
+    document.getElementById('cap-layers').innerHTML='<b>Test R² by depth.</b> The shaded band is the 95% bootstrap CI for our probe. Paper-protocol curves are 5-fold CV means with config selection as written. The nested version is at most 0.028 lower. Layer 0, the mean-pooled patch embedding, carries almost nothing, because mean-pooling a linear map of pixels gives roughly the mean pixel.';
   } else {
     legend(document.getElementById('lg-layers'),[
       {name:'our ridge probe',color:css('--ink2'),w:2.6,multi:true},{name:'random-init V-JEPA 2',color:css('--neutral'),w:1.6},
       {name:'raw pixels',color:css('--neutral'),dash:'1 3'},{name:'centroid trajectory',color:css('--neutral'),dash:'6 3 1 3'},
       {name:'direction probe → θ in speed set',color:css('--dir'),dash:'1 3',w:1.6},{name:'→ θ in acceleration set',color:css('--dir'),dash:'5 3',w:1.6}]);
-    document.getElementById('cap-layers').innerHTML='<b>Test error by depth</b> (circular MAE for direction, MAE for speed and acceleration). R² saturates early; error keeps improving with depth for the pretrained model and not for the random one. Direction probes trained on the direction set transfer to θ in the other two sets with a small penalty.';
+    document.getElementById('cap-layers').innerHTML='<b>Test error by depth</b> (circular MAE for direction, MAE for speed and acceleration). R² saturates early; error keeps improving with depth for the pretrained model and not for the random one. Direction probes trained on the direction set transfer to θ in the other two sets, with a penalty that shrinks from layer 8 on.';
   }
   ['direction','speed','acceleration'].forEach(n=>{
     const c=panel(host,n), l=L[n], col=css(VAR[n]);
@@ -633,8 +637,8 @@ function drawDims(){
     : ['direction','speed','acceleration'].map(n=>({name:n,color:css(VAR[n])})).concat([{name:'solid: C.11 rule (band: range over 3 seeds)',color:css('--ink2')},{name:'dashed: Fig. 22 rule',color:css('--ink2'),dash:'4 3'},{name:'paper Fig. 22 at its layer 8 (approx.)',color:css('--paper'),dot:true,hollow:true}]));
   lineChart(document.getElementById('c-dims'),{w:760,h:300,x:[0,24],y:[0,200],yt:[0,50,100,150,200],xt:[0,4,8,12,16,20,24],xl:'our layer (paper = ours − 1)',yl:'dimensions removed',xname:'layer',series:ser,bands,vfmt:v=>v.toFixed(0)});
   cap.innerHTML = dimsMode==='ours'
-    ? '<b>Dimensions removed before val R² falls below 0.3</b> (our ridge protocol, budget 80 probes; points at 160 or 80 never dropped). Layers 1–7 are highly redundant. Redundancy drops sharply between our layers 7 and 8, the block just before the paper\'s emergence layer.'
-    : '<b>Paper protocol</b> (Adam probes, 80/20 split, X ← X − XQQᵀ). Dimensions = 2 × probes for direction and 1 × probes for speed and acceleration. The C.11 rule stops at direction R² &lt; 0.1 or error &gt; 80°, and speed or acceleration R² &lt; 0.05. The Fig. 22 caption rule stops at direction R² &lt; 0.3 and speed R² &lt; 0.1. The paper reports about 44 direction probes (88 dims) and 28 speed probes at its layer 8.';
+    ? '<b>Dimensions removed before val R² falls below 0.3</b> (our ridge protocol, budget 80 probes; points at 160 or 80 never dropped). Layers 1–3 (direction) and 1–6 (speed, acceleration) never drop within budget. Direction needs 106–136 dimensions at layers 4–7 and 48–86 from layer 8 on. The drop between our layers 7 and 8 is the block just before the paper\'s emergence layer. These counts use val R² at a val-chosen α, so they are slightly optimistic.'
+    : '<b>Paper protocol</b> (Adam probes, 80/20 split, X ← X − XQQᵀ), median of 3 seeds; the band is the range over seeds. Dimensions = 2 × probes for direction and 1 × probes for speed and acceleration. The C.11 rule stops at direction R² &lt; 0.1 or error &gt; 80°, and speed or acceleration R² &lt; 0.05 or MAE &gt; 90% of a constant-mean baseline. The Fig. 22 caption rule stops at direction R² &lt; 0.3 and speed R² &lt; 0.1. At the paper\'s layer 8 (our 9) the median is 60 direction probes (120 dims), 44 speed and 26 acceleration. The paper reports about 44 and 28 in Fig. 22. Before layer 8 its direction count stays below 10; ours is 15–34.';
 }
 
 /* ---------- steering ---------- */
