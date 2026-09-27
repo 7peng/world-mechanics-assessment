@@ -129,6 +129,6 @@ Layer choice: the earliest layer where direction val error is within 1.25× of i
   - clamp at every layer, not just layer 12;
   - steer at later layers, such as 18–20, where fewer blocks remain to undo it;
   - fit a token-level (not pooled) INLP subspace.
-- Run INLP and steering at layer 8, the paper's PEZ and our compactness transition, as a direct comparison.
+- Run INLP and steering at our layer 9 (the paper's PEZ, their layer 8), right after our compactness transition, as a direct comparison.
 - Add bootstrap CIs to the steering curves.
 - Set up a value-held-out steering evaluation, where targets never appear in the train split, for comparability with Part 2.
