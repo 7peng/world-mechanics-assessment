@@ -87,7 +87,8 @@ Conventions:
   | real clip-to-clip difference | 0.55–0.56 | 0.08–0.11 |
   | random edit, same norm | 0.47–0.48 | 0.02 |
 
-  - The network does not single out the steering edit for cancellation. It attenuates and rotates offsets in the pooled state in general, and probes fit on clean downstream data do not read the target.
+  - Speed and acceleration edits decay like a real clip difference. The direction edit decays like a random edit for three blocks, then levels off at 7%, between the random edit (2%) and a clip difference (11%).
+  - So the network does not single out the steering edit for cancellation. It attenuates and rotates offsets in the pooled state in general, and probes fit on clean downstream data do not read the target.
   - The effect is the same at 5% of the edit size, checked in review.
   - The earlier diagnostic that applied the layer-12 probe to downstream layers is not meaningful: that probe fails on unsteered clips as well.
 
