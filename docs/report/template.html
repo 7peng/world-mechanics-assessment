@@ -1,713 +1,124 @@
 <title>Kinematics Inside V-JEPA 2</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=JetBrains+Mono:wght@400;600&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400&display=swap">
 <style>
-:root{
-  --bg:#f6f7f9; --surface:#ffffff; --sunken:#eef0f4; --ink:#14171d; --ink2:#4a5261; --muted:#737b8a;
-  --rule:#dde1e8; --grid:#e7eaf0; --accent:#3b5bdb; --accent-soft:#e6ebfb;
-  --dir:#2a78d6; --spd:#eb6834; --acc:#1baf7a; --paper:#2c3140; --neutral:#9aa1ad;
-  --warn:#b7791f; --warn-soft:#fbf1dc; --bad:#c53030; --good:#2f855a;
-  --video-bg:#1e1f1d;
-  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
-  --f-body:"Source Sans 3", "Segoe UI", system-ui, sans-serif;
-  --f-mono:"JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
-  color-scheme:light;
-}
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --bg:#101318; --surface:#171b22; --sunken:#1d222b; --ink:#e8ebf1; --ink2:#b3bac7; --muted:#8a92a1;
-    --rule:#2a303b; --grid:#232833; --accent:#8ca2f5; --accent-soft:#1f2745;
-    --dir:#3987e5; --spd:#e0703f; --acc:#23b886; --paper:#d5d9e2; --neutral:#6d7584;
-    --warn:#e0a84a; --warn-soft:#2c2415; --bad:#f07171; --good:#5fbf8d;
-    color-scheme:dark;
-  }
-}
-:root[data-theme="dark"]{
-  --bg:#101318; --surface:#171b22; --sunken:#1d222b; --ink:#e8ebf1; --ink2:#b3bac7; --muted:#8a92a1;
-  --rule:#2a303b; --grid:#232833; --accent:#8ca2f5; --accent-soft:#1f2745;
-  --dir:#3987e5; --spd:#e0703f; --acc:#23b886; --paper:#d5d9e2; --neutral:#6d7584;
-  --warn:#e0a84a; --warn-soft:#2c2415; --bad:#f07171; --good:#5fbf8d;
-  color-scheme:dark;
-}
+:root{--bg:#ffffff;--ink:#222;--ink2:#555;--muted:#888;--rule:#e4e4e4;--accent:#3b74c4;--dir:#3b74c4;--spd:#e0743f;--acc:#2f9b78;color-scheme:light}
 *{box-sizing:border-box}
-body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:17px;line-height:1.6;padding-inline:20px;padding-block:0 64px}
-.shell{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:210px minmax(0,1fr);gap:48px}
-@media (max-width:980px){.shell{grid-template-columns:minmax(0,1fr)} nav.toc{display:none}}
-nav.toc{position:sticky;top:calc(env(safe-area-inset-top,0px) + 24px);align-self:start;padding-top:40px;font-size:14px}
-nav.toc .k{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
-nav.toc ol{list-style:none;margin:0;padding:0;display:grid;gap:4px;counter-reset:s}
-nav.toc a{color:var(--ink2);text-decoration:none;display:block;padding:3px 8px;border-radius:6px}
-nav.toc a:hover,nav.toc a:focus-visible{background:var(--sunken);color:var(--ink);outline:none}
-main{min-width:0;padding-top:40px}
-header.hero{padding-bottom:28px;border-bottom:1px solid var(--rule);margin-bottom:8px}
-.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-h1{font-family:var(--f-display);font-weight:700;font-size:clamp(34px,5vw,52px);line-height:1.05;letter-spacing:-.02em;margin:10px 0 14px;text-wrap:balance}
-h2{font-family:var(--f-display);font-weight:700;font-size:28px;line-height:1.15;letter-spacing:-.01em;margin:0 0 6px;text-wrap:balance}
-h3{font-family:var(--f-display);font-weight:500;font-size:20px;line-height:1.25;margin:28px 0 8px;text-wrap:balance}
-p{margin:0 0 14px;max-width:68ch}
-.lede{font-size:19px;color:var(--ink2);max-width:62ch}
-section{padding-top:48px;scroll-margin-top:20px}
-section>.num{font-family:var(--f-mono);font-size:12px;color:var(--muted);letter-spacing:.06em}
-.mono,code{font-family:var(--f-mono);font-size:.86em}
-code{background:var(--sunken);padding:1px 5px;border-radius:4px}
-a{color:var(--accent)}
-.findings{display:grid;gap:12px;margin:22px 0 0;padding:0;list-style:none}
-.findings li{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;align-items:baseline}
-.findings .tag{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
-.findings b{font-weight:600}
-.var{font-weight:600;white-space:nowrap}
-.var.dir{color:var(--dir)} .var.spd{color:var(--spd)} .var.acc{color:var(--acc)}
-.callout{border:1px solid var(--rule);background:var(--surface);border-radius:10px;padding:14px 18px;margin:18px 0;max-width:72ch}
-.callout.warn{background:var(--warn-soft);border-color:transparent}
-.callout .h{font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);margin-bottom:4px}
-.callout p:last-child{margin-bottom:0}
-.tablewrap{overflow-x:auto;margin:16px 0 20px;border:1px solid var(--rule);border-radius:10px;background:var(--surface)}
-table{border-collapse:collapse;width:100%;font-size:15px}
-th,td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--rule)}
-tr:last-child td{border-bottom:none}
-th{font-family:var(--f-mono);font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink2);background:var(--sunken)}
-td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--f-mono);font-size:13.5px;white-space:nowrap}
-td.aspect{font-weight:600;white-space:nowrap}
-.pill{display:inline-block;font-family:var(--f-mono);font-size:11px;letter-spacing:.03em;padding:1px 7px;border-radius:999px;margin-left:6px;vertical-align:1px;white-space:nowrap}
-.pill.stated{background:var(--accent-soft);color:var(--accent)}
-.pill.assumed{background:var(--warn-soft);color:var(--warn)}
-.pill.leak{background:var(--warn-soft);color:var(--bad)}
-figure{margin:22px 0 26px}
-figure.wide{margin-inline:0}
-figcaption{font-size:14.5px;color:var(--ink2);margin-top:10px;max-width:78ch}
-figcaption b{color:var(--ink)}
-.panels{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:18px}
-.panel{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:12px 12px 6px;min-width:0}
-.panel .pt{font-family:var(--f-display);font-weight:500;font-size:16px;margin:0 0 2px 4px}
-.chart{position:relative;width:100%}
-.chart svg{display:block;width:100%;height:auto;overflow:visible}
-.chart text{font-family:var(--f-mono);font-size:10.5px;fill:var(--muted)}
-.chart .axis-label{fill:var(--ink2);font-size:11px}
-.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13.5px;color:var(--ink2);margin:0 0 10px}
-.legend span{display:inline-flex;align-items:center;gap:7px}
-.legend svg{flex:none}
-.tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--rule);border-radius:8px;padding:7px 9px;font-size:12.5px;line-height:1.45;box-shadow:0 4px 18px rgb(0 0 0 / .12);white-space:nowrap;z-index:5;font-family:var(--f-body)}
-.tip .t{font-family:var(--f-mono);font-size:11px;color:var(--muted);margin-bottom:2px}
-.tip .r{display:flex;gap:8px;align-items:center;justify-content:space-between}
-.tip .r i{display:inline-block;width:10px;height:3px;border-radius:2px;margin-right:6px}
-.tip .v{font-family:var(--f-mono);font-variant-numeric:tabular-nums;color:var(--ink)}
-.videos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
-@media (max-width:640px){.videos{grid-template-columns:repeat(2,minmax(0,1fr))}}
-.vid{background:var(--surface);border:1px solid var(--rule);border-radius:10px;overflow:hidden}
-.vid video{display:block;width:100%;aspect-ratio:1/1;background:var(--video-bg);image-rendering:pixelated}
-.vid .cap{padding:8px 10px;font-size:13.5px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
-.vid .cap .ds{font-family:var(--f-mono);font-size:11.5px;text-transform:uppercase;letter-spacing:.05em}
-.vid .cap .lab{font-family:var(--f-mono);font-size:12.5px;color:var(--ink)}
-.vid .meta{padding:0 10px 9px;font-size:12.5px;color:var(--muted);font-family:var(--f-mono)}
-.controls{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
-button.seg{font:inherit;font-size:13.5px;border:1px solid var(--rule);background:var(--surface);color:var(--ink2);padding:5px 12px;border-radius:999px;cursor:pointer}
-button.seg[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
-button.seg:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.diagram{overflow-x:auto;background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:14px}
-.diagram svg{display:block;min-width:720px;width:100%;height:auto}
-.diagram text{font-family:var(--f-body);font-size:13px;fill:var(--ink)}
-.diagram .small{font-family:var(--f-mono);font-size:10.5px;fill:var(--muted)}
-.diagram .box{fill:var(--sunken);stroke:var(--rule)}
-.diagram .hl{fill:var(--accent-soft);stroke:var(--accent)}
-.diagram .line{stroke:var(--ink2);stroke-width:1.4;fill:none}
-.diagram .arrow{fill:var(--ink2)}
-.kv{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 18px;font-size:15.5px;margin:12px 0 18px;max-width:78ch}
-.kv dt{font-family:var(--f-mono);font-size:12.5px;color:var(--muted);padding-top:3px}
-.kv dd{margin:0}
-pre{background:var(--sunken);border-radius:10px;padding:14px 16px;overflow-x:auto;font-family:var(--f-mono);font-size:13px;line-height:1.55;margin:12px 0 18px}
-ul.plain{margin:0 0 14px;padding-left:20px;max-width:70ch} ul.plain li{margin-bottom:6px}
-.twocol{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
-footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--rule);font-size:14px;color:var(--muted)}
-@media (prefers-reduced-motion: reduce){*{scroll-behavior:auto!important}}
+body{background:var(--bg);color:var(--ink);font-family:"Source Sans 3",system-ui,sans-serif;font-size:16.5px;line-height:1.55;padding-inline:20px;padding-block:0 60px}
+main{max-width:760px;margin:0 auto;padding-top:36px}
+h1{font-size:30px;font-weight:600;line-height:1.15;margin:6px 0 10px;letter-spacing:-.01em}
+h2{font-size:19px;font-weight:600;margin:40px 0 8px}
+p{margin:0 0 12px}
+.eyebrow,.cap,.k{font-family:"JetBrains Mono",ui-monospace,monospace}
+.eyebrow{font-size:12px;color:var(--muted);letter-spacing:.04em}
+.lede{color:var(--ink2);font-size:17.5px}
+ul{margin:0 0 12px;padding-left:20px} li{margin-bottom:5px}
+.var{font-weight:600}.dir{color:var(--dir)}.spd{color:var(--spd)}.acc{color:var(--acc)}
+figure{margin:18px 0 26px}
+figure img{width:100%;display:block}
+figcaption{font-size:14px;color:var(--ink2);margin-top:6px}
+figcaption b{color:var(--ink);font-weight:600}
+.videos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:14px 0 6px}
+.vid video{width:100%;aspect-ratio:1;display:block;background:#1e1f1d;border-radius:4px}
+.vid .k{font-size:12px;color:var(--muted);margin-top:4px}
+.tablewrap{overflow-x:auto;margin:12px 0 18px}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th,td{text-align:left;vertical-align:top;padding:6px 10px 6px 0;border-bottom:1px solid var(--rule)}
+th{font-weight:600;color:var(--ink2);font-size:13px}
+td.n{text-align:right;font-variant-numeric:tabular-nums;font-family:"JetBrains Mono",monospace;font-size:13px;padding-right:14px}
+th.n{text-align:right;padding-right:14px}
+code,pre{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:13px}
+code{background:#f3f3f3;padding:1px 4px;border-radius:3px}
+pre{background:#f6f6f6;padding:12px 14px;border-radius:4px;overflow-x:auto;line-height:1.5}
+.note{border-left:2px solid var(--rule);padding-left:12px;color:var(--ink2);font-size:15px}
+footer{margin-top:40px;font-size:13.5px;color:var(--muted);border-top:1px solid var(--rule);padding-top:12px}
 </style>
 
-<div class="shell">
-<nav class="toc" aria-label="Contents">
-  <div class="k">Contents</div>
-  <ol>
-    <li><a href="#summary">Summary</a></li>
-    <li><a href="#data">The data</a></li>
-    <li><a href="#features">Model and features</a></li>
-    <li><a href="#protocols">Protocols</a></li>
-    <li><a href="#probing">1 · Layer-wise probing</a></li>
-    <li><a href="#inlp">2 · Nullspace probing</a></li>
-    <li><a href="#steering">3 · Subspace steering</a></li>
-    <li><a href="#confound">Displacement confound</a></li>
-    <li><a href="#limits">Limits and next steps</a></li>
-    <li><a href="#reproduce">Reproduce</a></li>
-  </ol>
-</nav>
-
 <main>
-<header class="hero">
-  <div class="eyebrow">world-mechanics · Part 1 · frozen V-JEPA 2 ViT-L/16, 256 px</div>
-  <h1>Kinematics Inside V-JEPA 2</h1>
-  <p class="lede">Where does a frozen video encoder represent a moving disk's direction, speed and acceleration, how many dimensions does each take, and can it be steered? We reproduce the probing, nullspace and steering methods of Joseph et al. (arXiv 2602.07050) on the supplied synthetic clips. Layer-wise probing, nullspace probing and direction steering were each run twice: once with our own protocol, and once with the paper's protocol as literally as its text allows. The propagation and confound analyses use our protocol only.</p>
-</header>
+<div class="eyebrow">world-mechanics · part 1 · frozen V-JEPA 2 ViT-L/16</div>
+<h1>Kinematics Inside V-JEPA 2</h1>
+<p class="lede">Where a frozen video encoder represents a moving disk's direction, speed and acceleration, how many dimensions each uses, and whether the representation can be steered. We reproduce the probing, nullspace and steering methods of Joseph et al. (arXiv 2602.07050) on the supplied clips, with our own protocol and with the paper's.</p>
 
-<section id="summary">
-  <h2>Summary</h2>
-  <ul class="findings">
-    <li><span class="tag">A</span><div><b>All three variables are linearly decodable from the first transformer block.</b> At our layer 1, our ridge probe gets test R² 0.85 for <span class="var dir">direction</span> and 0.98 for <span class="var spd">speed</span> and <span class="var acc">acceleration</span>. The paper's protocol on the same data gets 0.66, 0.88 and 0.82 at that block. A randomly initialised V-JEPA gets 0.83, 0.93 and 0.91, so on these clips one attention block over mean-pooled tokens already exposes the motion.</div></li>
-    <li><span class="tag">B</span><div><b>Direction shows no step at the paper's layer 8.</b> The paper's pooled direction curve jumps from about 0.5 to 0.93 at its layer 8 (Fig. 2c). On our data, direction error falls smoothly: 12° at our layer 1, 4.3° at layer 9, 3.1–3.6° from layer 13 on. Low early scores like the paper's appear only with very little data and a gradient-trained probe that has not converged. With 96 clips that probe gets R² 0.31 at layer 1, or 0.57 with 10× more epochs, against 0.63 for ridge. Even then the rise is complete by our layer 6, three blocks before the paper's layer 8.</div></li>
-    <li><span class="tag">C</span><div><b>Each variable spans tens of dimensions.</b> With our protocol at layer 12, R² falls below 0.3 after removing 58 dimensions for direction, 51 for speed and 48 for acceleration. With the paper's protocol at its layer 8, the stopping rule is hit after a median of 60 direction probes (120 dimensions) and 44 speed probes, against the paper's ≈44 and ≈28. Removing random directions does nothing; removing the top 4–13 principal components collapses decoding.</div></li>
-    <li><span class="tag">D</span><div><b>Paper-style steering reproduces at the layer where it is applied.</b> Averaged over three train/test splits, the error to a 90° target falls from 76° with 1 probe to 8° with 20 probes (6° at 224 px). The paper reports 11.9°. The result depends on the split: 3.5–14° at 20 probes.</div></li>
-    <li><span class="tag">E</span><div><b>Downstream, the steering mostly fades.</b> We added the same edit to every token at our layer 12 and let the network run on. Direction error to target then goes 4° → 25° → 45° → 73° within three blocks, ending at 85° (a random edit gives 90°). Speed and acceleration keep part of the effect. The edit is not specially targeted. Along its own direction, the speed and acceleration edits decay like a real clip-to-clip difference. The direction edit decays like a random edit for three blocks, then levels off between the two.</div></li>
-    <li><span class="tag">F</span><div><b>"Acceleration" is mostly displacement.</b> We applied the acceleration probe to constant-velocity clips, whose true acceleration is 0. It predicts 6.8 m/s² on average and tracks how far the disk travelled with r = 0.993. The paper's datasets are built the same way.</div></li>
-  </ul>
-</section>
+<h2>Summary</h2>
+<ul>
+  <li>All three variables are linearly decodable from the first transformer block (R² 0.85 / 0.98 / 0.98). A randomly initialised encoder gets 0.83 / 0.93 / 0.91.</li>
+  <li>Direction has no step at the paper's layer 8. Error falls smoothly from 12° (layer 1) to 3° (layer 13+). The paper's low early-layer scores appear only with little data and an under-trained gradient probe.</li>
+  <li>Each variable occupies about 50–60 dimensions at layer 12. Redundancy drops sharply between layers 7 and 8.</li>
+  <li>Paper-style steering reproduces at the steered layer: 76° → 8° error to target from 1 to 20 probes (paper: 11.9°).</li>
+  <li>Propagated through the remaining blocks, the edit fades like any other offset. Direction ends at 85° error (random edit: 90°); speed and acceleration keep part of the effect.</li>
+  <li>The acceleration probe reads displacement: on constant-velocity clips it predicts 6.8 m/s² and tracks distance travelled with r = 0.993.</li>
+</ul>
 
-<section id="data">
-  <span class="num">DATA</span>
-  <h2>The data</h2>
-  <p>Each clip is 16 frames at 24 fps, 256×256 px: 0.625 s from the first frame to the last. A single disk moves on a dark background. The clips below are from the held-out test split, shown at native resolution and looping. The disk decodes as orange, although <code>DATA.md</code> says blue; this is probably a colour-channel swap at render time. Frames are fed to the model as decoded.</p>
-  <div class="videos" id="videos"></div>
-  <div class="tablewrap"><table>
-    <thead><tr><th>Set</th><th class="num">Clips</th><th>Primary label</th><th>What else varies</th></tr></thead>
-    <tbody>
-      <tr><td><span class="var dir">direction</span></td><td class="num">1,500</td><td>θ: 64 values, 5.625° apart, ~23 clips each</td><td>Half constant velocity (1–7 m/s), half accelerating from rest (2–10 m/s²); start position in [−2, 2]² m. In 113 clips (7.5%) the disk leaves the frame entirely; in 179 (11.9%) it is at least partly cut off.</td></tr>
-      <tr><td><span class="var spd">speed</span></td><td class="num">1,536</td><td>64 speeds, 0.25–4.0 m/s, 24 clips each</td><td>θ uniform over 64 values; acceleration 0; always in frame</td></tr>
-      <tr><td><span class="var acc">acceleration</span></td><td class="num">1,536</td><td>64 accelerations, 0.25–10.0 m/s², 24 clips each</td><td>θ uniform; starts at rest; always in frame</td></tr>
-    </tbody>
-  </table></div>
-  <p>We checked the labels against the disk's measured centroid trajectory. The scale is 32.0 px per metre, which matches an 8 m floor spanning the 256-px frame. The paper's camera sits 10 m above an 8×8 m floor, but it does not give the field of view, so the match with its scale is an inference. The trajectory's fitted direction is within 1–2° of the label (median). Within each dataset, the distance the disk travels over the clip is set by the label:</p>
-  <figure>
-    <div class="legend" id="lg-disp"></div>
-    <div class="panels" id="p-disp"></div>
-    <figcaption><b>Distance travelled over the clip, by label value</b> (mean over 24 clips). Distance grows linearly with speed and with acceleration (½·a·t² from rest). At the low end the disk barely moves: 5 px at 0.25 m/s and 2 px at 0.25 m/s², against a disk about 22 px across. Positions are quantised to whole pixels, so slow clips move in jumps.</figcaption>
-  </figure>
-</section>
+<h2>Data and model</h2>
+<p>Three sets of 16-frame, 256×256 clips at 24 fps: <span class="var dir">direction</span> (1,500 clips, 64 angles), <span class="var spd">speed</span> (1,536, 0.25–4 m/s) and <span class="var acc">acceleration</span> (1,536, 0.25–10 m/s², from rest). Labels match the disk's measured trajectory (32.0 px/m). The disk decodes as orange, not blue as documented.</p>
+<div class="videos" id="videos"></div>
+<p>Encoder: <code>facebook/vjepa2-vitl-fpc64-256</code>, frozen, no predictor. Frames are rescaled and ImageNet-normalised, with no resize or crop. Features are the residual stream after each of the 24 blocks (layer 0 = patch embedding), mean-pooled over all 2,048 tokens. Splits are 60/20/20 by label value; test is used only for reported numbers.</p>
 
-<section id="features">
-  <span class="num">FEATURES</span>
-  <h2>Model and features</h2>
-  <p>The encoder is <code>facebook/vjepa2-vitl-fpc64-256</code>, kept frozen. The predictor is never used. The checkpoint was trained on 64-frame clips; here it sees 16 frames.</p>
-  <div class="diagram" role="img" aria-label="Feature pipeline: 16 frames become 2048 tokens, pass through 24 transformer blocks, and each block's output is mean-pooled into a 1024-dimensional vector">
-  <svg viewBox="0 0 980 230">
-    <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrow"/></marker></defs>
-    <g>
-      <rect x="10" y="40" width="130" height="120" rx="8" class="box"/>
-      <text x="75" y="70" text-anchor="middle" font-weight="600">Clip</text>
-      <text x="75" y="92" text-anchor="middle">16 × 256×256 RGB</text>
-      <text x="75" y="112" class="small" text-anchor="middle">rescale 0–1</text>
-      <text x="75" y="126" class="small" text-anchor="middle">ImageNet mean/std</text>
-      <text x="75" y="140" class="small" text-anchor="middle">no resize or crop</text>
-    </g>
-    <path d="M142 100 H182" class="line" marker-end="url(#ah)"/>
-    <g>
-      <rect x="186" y="40" width="150" height="120" rx="8" class="box"/>
-      <text x="261" y="70" text-anchor="middle" font-weight="600">Tubelets</text>
-      <text x="261" y="92" text-anchor="middle">2 frames × 16×16 px</text>
-      <text x="261" y="114" text-anchor="middle">8 × 16 × 16</text>
-      <text x="261" y="132" class="small" text-anchor="middle">= 2,048 tokens × 1,024</text>
-      <text x="261" y="148" class="small" text-anchor="middle">(224 px: 8×14×14 = 1,568)</text>
-    </g>
-    <path d="M338 100 H378" class="line" marker-end="url(#ah)"/>
-    <g>
-      <rect x="382" y="30" width="330" height="140" rx="8" class="box"/>
-      <text x="547" y="54" text-anchor="middle" font-weight="600">24 transformer blocks (RoPE attention + MLP)</text>
-      <g id="blocks"></g>
-      <text x="547" y="150" class="small" text-anchor="middle">our layer ℓ = output of block ℓ · layer 0 = patch embedding</text>
-      <text x="547" y="164" class="small" text-anchor="middle">paper layer = ours − 1</text>
-    </g>
-    <path d="M714 100 H754" class="line" marker-end="url(#ah)"/>
-    <g>
-      <rect x="758" y="40" width="210" height="120" rx="8" class="hl"/>
-      <text x="863" y="70" text-anchor="middle" font-weight="600">Mean-pool per layer</text>
-      <text x="863" y="92" text-anchor="middle">all tokens → 1 × 1,024</text>
-      <text x="863" y="114" class="small" text-anchor="middle">25 depths × 1,024 per clip</text>
-      <text x="863" y="130" class="small" text-anchor="middle">also: per-time-step means</text>
-      <text x="863" y="144" class="small" text-anchor="middle">(8 × 1,024), cached fp16</text>
-    </g>
-    <text x="490" y="210" text-anchor="middle" class="small">Residual stream is read before the final LayerNorm. Verified: LayerNorm(hidden_states[24]) equals the model's last_hidden_state.</text>
-  </svg>
-  </div>
-  <dl class="kv">
-    <dt>Preprocessing</dt><dd>The HF processor's default resizes to 292 px and centre-crops to 256, which would cut about 6% off each border and could clip the disk. The clips are already 256², so we only rescale and normalise.</dd>
-    <dt>224-px variant</dt><dd>The paper's App. C.6 describes 224×224 input (1,568 tokens). We ran every paper-protocol experiment at both 256 px (native checkpoint) and 224 px (bicubic resize of the full frame). The HF implementation derives the RoPE position grid from the config (16×16), not from the input, so at 224 px we set it to 14×14 on every layer. Without that fix, token positions are scrambled; our first 224-px run had this bug.</dd>
-    <dt>Controls</dt><dd>A randomly initialised V-JEPA 2 with the same architecture (HF default initialisation); raw pixels (red channel, 32×32 per frame, linear); the disk's centroid trajectory and visible-area fraction, with degree-2 polynomial features.</dd>
-  </dl>
-</section>
+<h2>Protocols</h2>
+<div class="tablewrap"><table>
+<tr><th></th><th>Ours</th><th>Paper (Joseph et al.), as run</th></tr>
+<tr><td>Probe</td><td>Closed-form ridge, z-scored features, α on val</td><td>Linear probe by AdamW; lr {1e-4…5e-3} × wd {0.01…0.8}; 100/50 epochs, batch 32, raw features</td></tr>
+<tr><td>Split</td><td>Fixed 60/20/20; 5-fold CV agrees</td><td>5-fold grouped CV; config chosen on the reported fold (nested differs by ≤ 0.03)</td></tr>
+<tr><td>Nullspace</td><td>Ridge per step; layer 12 (val); test R²</td><td>Adam, 80/20 split, X ← X − XQQᵀ; C.11 stopping rules; 3 seeds, median</td></tr>
+<tr><td>Steering</td><td>Layer 12; 8 targets; read-out probe fit on val</td><td>70/30 split; 25 orthogonal probes; θ* = 90°; read-out probe fit on test (as in C.12); 3 splits</td></tr>
+<tr><td>Layer index</td><td>ℓ = output of block ℓ</td><td>Unspecified; we use block outputs and also test the other reading</td></tr>
+</table></div>
+<p class="note">Unspecified in the paper and chosen by us: optimizer, epochs, batch size, feature scaling, CV grouping, layer indexing. Every paper number below was read off a figure and is approximate.</p>
 
-<section id="protocols">
-  <span class="num">PROTOCOLS</span>
-  <h2>Protocols, side by side</h2>
-  <p>We ran two protocols. <b>Ours</b> uses closed-form ridge probes on standardised features and a single stratified train/val/test split. <b>Paper</b> follows Joseph et al.'s App. B, C.11 and C.12 as literally as the text allows. Where the paper is silent we made a choice and flagged it.</p>
-  <p class="mono" style="font-size:13px"><span class="pill stated">stated</span> in the paper &nbsp; <span class="pill assumed">our choice</span> not specified by the paper &nbsp; <span class="pill leak">split issue</span> evaluation data also used for fitting or selection</p>
-  <div class="tablewrap"><table>
-    <thead><tr><th>Aspect</th><th>Ours</th><th>Paper protocol, as run</th></tr></thead>
-    <tbody>
-      <tr><td class="aspect">Datasets</td><td>Supplied direction, speed and acceleration sets</td><td>Same supplied sets <span class="pill assumed">our choice</span><br><span style="color:var(--muted);font-size:14px">Paper used its own Kubric sets: 392 constant-velocity videos (8 θ × 7 speeds × 7 starts) and 280 acceleration videos (8 θ × 5 accelerations × 7 starts)</span></td></tr>
-      <tr><td class="aspect">Layers</td><td>Patch embedding + 24 block outputs</td><td>"Each layer ℓ ∈ {0,…,n−1}" <span class="pill stated">stated</span>. We read ℓ as the output of block ℓ <span class="pill assumed">our choice</span>. Steering is also run under the other reading, where ℓ = 0 is the patch embedding.</td></tr>
-      <tr><td class="aspect">Pooling</td><td>Mean over all space-time tokens</td><td>"Spatiotemporally pooled" <span class="pill stated">stated</span></td></tr>
-      <tr><td class="aspect">Features</td><td>z-scored with train statistics</td><td>Raw <span class="pill assumed">our choice</span></td></tr>
-      <tr><td class="aspect">Probe</td><td>Closed-form ridge, 15 α values from 10⁻² to 10⁵</td><td>Linear f(h)=Wh+b trained by gradient descent <span class="pill stated">stated</span>; AdamW, batch 32, 100 epochs (direction) or 50 (speed, acceleration), nn.Linear init <span class="pill assumed">our choice</span></td></tr>
-      <tr><td class="aspect">Hyper-parameters</td><td>α chosen on the val split</td><td>lr {1e-4, 3e-4, 1e-3, 3e-3, 5e-3} × weight decay {0.01, 0.1, 0.4, 0.8}, "best model based on validation performance" <span class="pill stated">stated</span></td></tr>
-      <tr><td class="aspect">Split (probing)</td><td>60 / 20 / 20 train / val / test, stratified by label value; test used only for reported numbers. 5-fold CV checked separately and agrees.</td><td>5-fold grouped CV, mean ± sd <span class="pill stated">stated</span>; groups = label combination <span class="pill assumed">our choice</span>. Config selected on the reported fold <span class="pill leak">split issue</span>; we also report a nested version.</td></tr>
-      <tr><td class="aspect">Targets</td><td>(sin θ, cos θ); speed and acceleration in SI units</td><td>(sin θ, cos θ), MSE <span class="pill stated">stated</span>; R² averaged over the two outputs <span class="pill assumed">our choice</span></td></tr>
-      <tr><td class="aspect">Nullspace probing</td><td>Ridge per step; z-scored once; each new direction orthogonalised against all earlier ones; train fit, val-selected α, test R² reported. Layer 12, chosen on val.</td><td>Adam, lr 1e-3, weight decay 1e-4, 100 or 50 epochs, 80/20 split, Q = QR(Wᵀ), X ← X − XQQᵀ <span class="pill stated">stated</span>; stop at direction R² &lt; 0.1 or MAE &gt; 80°, speed R² &lt; 0.05 or MAE &gt; 90% of a baseline <span class="pill stated">stated</span>. Baseline = constant-mean predictor, acceleration uses the speed rule, 3 seeds with the median reported, own minibatch order per layer <span class="pill assumed">our choice</span>. The same 20% sets both the curve and the stopping point <span class="pill leak">split issue</span></td></tr>
-      <tr><td class="aspect">Steering</td><td>INLP subspace from train; steer test clips to 8 targets; read out with a probe fit on the val split ("strict") or on test ("paper"); matched-norm random control; also propagated through later blocks</td><td>70/30 split; 25 orthogonal probes on train; V = QR([W₁ᵀ…W_Kᵀ]); x* = Vc* + x⊥ with c* by least squares; θ* = 90°; paper layer 8 <span class="pill stated">stated</span>. Three random splits <span class="pill assumed">our choice</span>. Evaluation probe trained on the clean test activations <span class="pill leak">split issue</span></td></tr>
-    </tbody>
-  </table></div>
-  <div class="callout warn">
-    <div class="h">How clean is the paper's split?</div>
-    <p>Only partly. In layer-wise probing, the literal reading of App. B picks the best of 20 configurations on the same fold it reports. In practice the inflation is small here: the nested version is at most 0.028 lower. Nullspace probing has no separate test set. In steering, the steering subspace comes from train, but the evaluation probe is trained on the test clips it then reads.</p>
-  </div>
-</section>
+<h2>Results</h2>
+<figure><img src="__F1__" alt="Linear probe R² and error by layer for direction, speed and acceleration">
+<figcaption><b>Fig. 1.</b> Test R² (top) and error (bottom) by layer. Dashed: paper protocol on our data. Circles: paper, Fig. 2c. Layer 0 (pooled patch embedding) carries almost nothing.</figcaption></figure>
 
-<section id="probing">
-  <span class="num">EXPERIMENT 1</span>
-  <h2>Layer-wise probing</h2>
-  <p>A linear probe is fit at each depth for each variable. Test R² is shown on our layer index, where our layer ℓ is the output of block ℓ; the paper's numbering is one lower. The ink curves are the paper's protocol run on our data. The open circles are the paper's own reported values, read off its Fig. 2c at its layers 0 and 8.</p>
-  <div class="controls" role="group" aria-label="Metric">
-    <button class="seg" id="m-r2" aria-pressed="true">R²</button>
-    <button class="seg" id="m-err" aria-pressed="false">Error (ours only)</button>
-  </div>
-  <figure class="wide">
-    <div class="legend" id="lg-layers"></div>
-    <div class="panels" id="p-layers"></div>
-    <figcaption id="cap-layers"></figcaption>
-  </figure>
-  <div class="tablewrap"><table>
-    <thead><tr><th>Direction R² at block (paper index)</th><th class="num">0</th><th class="num">2</th><th class="num">4</th><th class="num">6</th><th class="num">8</th><th class="num">11</th><th class="num">23</th></tr></thead>
-    <tbody id="t-layers"></tbody>
-  </table></div>
-  <h3>Why does direction look earlier here than in the paper?</h3>
-  <p>We changed two things at a time, probe type and data regime, on the direction set. "Paper-like" keeps only constant-velocity clips at the paper's 8 directions (0°, 45°, …, 315°), which is 96 clips. That is a quarter of the paper's 392, so it exaggerates the effect of little data. All four probe types use 5-fold CV with hyper-parameters chosen on an inner split.</p>
-  <figure>
-    <div class="controls" role="group" aria-label="Data regime">
-      <button class="seg" id="r-full" aria-pressed="true">Full direction set (1,500)</button>
-      <button class="seg" id="r-paper" aria-pressed="false">Paper-like subset (96)</button>
-    </div>
-    <div class="legend" id="lg-proto"></div>
-    <div class="panel"><div class="chart" id="c-proto"></div></div>
-    <figcaption><b>Direction R² by probe type (5-fold CV).</b> On the full set, ridge on raw and on standardised features agree. The paper-style gradient probe scores 0.66 at layer 1 (0.72 with 1,000 epochs), against 0.87 for ridge. On the 96-clip subset it scores 0.31 (0.57 with 1,000 epochs), against 0.63 for ridge. So with little data, the paper-style probe is held back by its training budget and weight decay, not by what the features contain. In every setting the rise is complete by our layer 6 (their 5), before the paper's layer 8.</figcaption>
-  </figure>
-  <div class="callout">
-    <div class="h">Reading the paper directly</div>
-    <p>App. C.5, p. 26: "direction-related signals are already present in early layers, but remain tightly coupled to specific spatial locations … Mean-pooled probes can nevertheless achieve modest performance by linearly combining these fragmented signals … per-patch probe performance rises abruptly at the emergence zone, while mean-pooled performance improves more gradually."</p><p>"More gradually" is relative to the per-patch probes. The paper's pooled curves still step at layer 8: Fig. 2c goes from about 0.5 to 0.93, and Fig. 18a's pooled curve from about 0.47 to 0.85. We see no such step, so this is a real difference between the two setups. Per-patch probing is the next test.</p>
-  </div>
-</section>
+<figure><img src="__F2__" alt="Direction R² by probe type on the full set and a 96-clip subset">
+<figcaption><b>Fig. 2.</b> Direction R² by probe type and data size (5-fold CV). The paper-style probe reaches 0.31 at layer 1 on 96 clips (0.57 with 10× the epochs) against 0.63 for ridge. In every case the rise is complete by layer 6.</figcaption></figure>
 
-<section id="inlp">
-  <span class="num">EXPERIMENT 2</span>
-  <h2>Iterative nullspace probing</h2>
-  <p>Fit a probe, delete the directions it reads, fit again, and repeat. How fast the next probe's accuracy falls shows how many dimensions a variable occupies and how redundantly.</p>
-  <div class="diagram" role="img" aria-label="Nullspace probing loop">
-  <svg viewBox="0 0 980 170">
-    <defs><marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrow"/></marker></defs>
-    <rect x="10" y="45" width="170" height="80" rx="8" class="box"/>
-    <text x="95" y="78" text-anchor="middle" font-weight="600">Pooled features X</text>
-    <text x="95" y="100" class="small" text-anchor="middle">N × 1,024 at one layer</text>
-    <path d="M182 85 H232" class="line" marker-end="url(#ah2)"/>
-    <rect x="236" y="45" width="200" height="80" rx="8" class="hl"/>
-    <text x="336" y="72" text-anchor="middle" font-weight="600">Fit probe k</text>
-    <text x="336" y="94" class="small" text-anchor="middle">W_k: 1,024 × 2 (sin, cos)</text>
-    <text x="336" y="110" class="small" text-anchor="middle">or 1,024 × 1 (speed, accel.)</text>
-    <path d="M438 85 H488" class="line" marker-end="url(#ah2)"/>
-    <rect x="492" y="45" width="210" height="80" rx="8" class="box"/>
-    <text x="597" y="72" text-anchor="middle" font-weight="600">Record held-out R²</text>
-    <text x="597" y="94" class="small" text-anchor="middle">direction: also error and</text>
-    <text x="597" y="110" class="small" text-anchor="middle">accuracy within 15°</text>
-    <path d="M704 85 H754" class="line" marker-end="url(#ah2)"/>
-    <rect x="758" y="45" width="210" height="80" rx="8" class="box"/>
-    <text x="863" y="72" text-anchor="middle" font-weight="600">Project out</text>
-    <text x="863" y="94" class="small" text-anchor="middle">Q_k = QR(W_kᵀ)</text>
-    <text x="863" y="110" class="small" text-anchor="middle">X ← X − X Q_k Q_kᵀ</text>
-    <path d="M863 128 V152 H336 V130" class="line" marker-end="url(#ah2)"/>
-    <text x="600" y="164" class="small" text-anchor="middle">repeat until R² falls below threshold; the count of probes gives the dimensionality</text>
-  </svg>
-  </div>
-  <figure class="wide">
-    <div class="legend" id="lg-inlp"></div>
-    <div class="panels" id="p-inlp"></div>
-    <figcaption><b>Held-out R² of the next probe after removing k dimensions, our protocol at layer 12.</b> Layer 12 is the earliest layer where direction's val error is within 1.25× of its best. The paper's rule, the first layer where direction R² jumps, cannot work when R² is already high at layer 1. Removing random directions leaves R² at about 0.98. Removing the top principal components collapses it: the variables are the dominant variance of the pooled representation, since nothing else changes in these clips.</figcaption>
-  </figure>
-  <h3>Dimensions needed, by layer</h3>
-  <div class="controls" role="group" aria-label="Protocol for dimensionality">
-    <button class="seg" id="d-ours" aria-pressed="true">Our protocol</button>
-    <button class="seg" id="d-paper" aria-pressed="false">Paper protocol, 256 px</button>
-    <button class="seg" id="d-paper224" aria-pressed="false">Paper protocol, 224 px</button>
-  </div>
-  <figure>
-    <div class="legend" id="lg-dims"></div>
-    <div class="panel"><div class="chart" id="c-dims"></div></div>
-    <figcaption id="cap-dims"></figcaption>
-  </figure>
-</section>
+<figure><img src="__F3__" alt="Nullspace probing curves and dimensions by layer">
+<figcaption><b>Fig. 3.</b> Nullspace probing at layer 12. R² falls below 0.3 after 58 / 51 / 48 removed dimensions. Random directions do nothing; the top 4–13 principal components remove everything. Right: dimensions needed by layer under our protocol. The paper protocol at its layer 8 gives a median of 60 direction probes (120 dims), 44 speed and 26 acceleration; the paper reports ≈44 and ≈28.</figcaption></figure>
 
-<section id="steering">
-  <span class="num">EXPERIMENT 3</span>
-  <h2>Multi-probe subspace steering</h2>
-  <p>The first N nullspace probes span a subspace V. For a clip's pooled activation x, the coordinates inside V are replaced by the values that make every probe read the target, and everything outside V is kept (App. C.12, Eq. 8). We evaluate in two places: at the same layer, as the paper does, and after letting the remaining blocks run.</p>
-  <div class="diagram" role="img" aria-label="Steering: replace the coordinates in the probe subspace, then either read out at the same layer or propagate through later blocks">
-  <svg viewBox="0 0 980 214">
-    <defs><marker id="ah3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrow"/></marker></defs>
-    <rect x="10" y="20" width="190" height="80" rx="8" class="box"/>
-    <text x="105" y="50" text-anchor="middle" font-weight="600">Test clip, layer L</text>
-    <text x="105" y="72" class="small" text-anchor="middle">pooled x = V c + x⊥</text>
-    <path d="M202 60 H240" class="line" marker-end="url(#ah3)"/>
-    <rect x="244" y="20" width="290" height="80" rx="8" class="hl"/>
-    <text x="389" y="46" text-anchor="middle" font-weight="600">Clamp inside V</text>
-    <text x="389" y="67" class="small" text-anchor="middle">c*: least squares, all N probes read θ*</text>
-    <text x="389" y="84" class="small" text-anchor="middle">x* = V c* + x⊥</text>
-    <path d="M536 60 H574" class="line" marker-end="url(#ah3)"/>
-    <rect x="578" y="20" width="392" height="80" rx="8" class="box"/>
-    <text x="774" y="46" text-anchor="middle" font-weight="600">A · Same-layer read-out (paper)</text>
-    <text x="774" y="67" class="small" text-anchor="middle">probe trained on clean test clips (paper)</text>
-    <text x="774" y="84" class="small" text-anchor="middle">or on the val split (strict)</text>
-    <path d="M389 102 V160 H574" class="line" marker-end="url(#ah3)"/>
-    <rect x="578" y="118" width="392" height="86" rx="8" class="box"/>
-    <text x="774" y="143" text-anchor="middle" font-weight="600">B · Propagated (ours)</text>
-    <text x="774" y="164" class="small" text-anchor="middle">add Δ = x* − x to every token at layer L,</text>
-    <text x="774" y="180" class="small" text-anchor="middle">run blocks L+1…24, read out with probes</text>
-    <text x="774" y="196" class="small" text-anchor="middle">fit on clean val clips at each later layer</text>
-    <text x="190" y="150" class="small" text-anchor="middle">Adding the same Δ to every token</text>
-    <text x="190" y="166" class="small" text-anchor="middle">moves the pooled mean exactly to x*</text>
-  </svg>
-  </div>
-  <h3>A · Same-layer read-out</h3>
-  <figure class="wide">
-    <div class="legend" id="lg-steer"></div>
-    <div class="panels" id="p-steer"></div>
-    <figcaption><b>Mean error of the decoded value to the target, held-out test clips.</b> Direction compares four runs:<br>• our protocol at layer 12, 8 targets, strict read-out;<br>• the paper protocol at paper layer 8, target 90°, at 256 px and 224 px;<br>• the paper's Fig. 24, read off the plot.<br>The grey line is a random edit with the same norm in a random subspace of the same size. Speed and acceleration show our protocol only; the paper steers direction only.</figcaption>
-  </figure>
-  <p>In no split did the paper's steering-probe sequence reach R² &lt; 0.1 within 25 probes; the lowest was 0.80–0.83 at 256 px. The paper reports reaching it.</p>
-  <div class="tablewrap"><table>
-    <thead><tr><th>Direction, target 90° (mean of 3 splits)</th><th class="num">N=1</th><th class="num">2</th><th class="num">3</th><th class="num">5</th><th class="num">10</th><th class="num">15</th><th class="num">20</th><th class="num">no steer</th></tr></thead>
-    <tbody id="t-steer"></tbody>
-  </table></div>
-  <p>Steering is specific. Steering speed or acceleration leaves the θ read-out of the same clips unchanged up to about 20 probes (5.2° clean vs 5.6° steered for speed). At 100 probes it degrades, to 17.6° for speed and 33.8° for acceleration, because the subspace starts to take in shared dimensions.</p>
-  <h3>B · Propagated through the rest of the encoder</h3>
-  <figure class="wide">
-    <div class="legend" id="lg-prop"></div>
-    <div class="panels" id="p-prop"></div>
-    <figcaption><b>Error to target at each downstream read-out layer after steering at layer 12.</b> Read-out probes are fit on clean val clips at each layer. Direction loses the effect within three blocks and ends near the random-edit control. Speed and acceleration keep part of it: at layer 24, 1.13 m/s against 1.35 m/s for a random edit, and 2.96 against 3.50 m/s². The dashed line is the unsteered probe error, the best any read-out can do.</figcaption>
-  </figure>
-  <figure>
-    <div class="legend" id="lg-persist"></div>
-    <div class="panels" id="p-persist"></div>
-    <figcaption><b>How much of an injected shift survives along its own direction.</b> Measured as (steered − clean)·Δ / ‖Δ‖² in the pooled residual stream, over 32 test clips. Three kinds of Δ are compared:<br>• the steering edit (N = 20);<br>• a real difference between two clips, injected the same way;<br>• a random edit of equal norm.<br>For speed and acceleration, the steering edit decays like a real clip difference (9–10% left at layer 24, against 8–9%). For direction, it decays like the random edit over the first three blocks, then levels off at 7%, between the random edit (2%) and a real clip difference (11%). In a code review the steering result held at 5% of the edit size, so it is not an out-of-range effect. The network does not single out the steering edit; it attenuates and rotates offsets in the pooled state generally. Probes fit on clean data at later layers then do not read the target.</figcaption>
-  </figure>
-</section>
+<figure><img src="__F4__" alt="Steering error to target versus number of probes">
+<figcaption><b>Fig. 4.</b> Steering read out at the steered layer. Our protocol reaches the unsteered floor at 10 probes. The paper protocol (3 splits) gives 8.4° at 20 probes, range 3.5–14°; the paper reports 11.9°. Its probe sequence never reached R² &lt; 0.1 within 25 probes (minimum 0.80).</figcaption></figure>
 
-<section id="confound">
-  <span class="num">CONTROL</span>
-  <h2>Displacement confound</h2>
-  <p>The speed set has no acceleration and the acceleration set always starts from rest. Within each set, the distance travelled over the clip determines the label, so a probe can succeed by reading where the disk ends up. To test this, we applied the layer-12 acceleration probe to the <span class="var spd">speed</span> clips, whose true acceleration is 0.</p>
-  <div class="tablewrap"><table>
-    <thead><tr><th>Acceleration probe applied to constant-velocity clips</th><th class="num">Value</th></tr></thead>
-    <tbody>
-      <tr><td>Mean predicted acceleration (true value 0)</td><td class="num">6.76 m/s²</td></tr>
-      <tr><td>Correlation with distance travelled</td><td class="num">0.993</td></tr>
-      <tr><td>Slope vs the acceleration that covers the same distance from rest</td><td class="num">0.97</td></tr>
-    </tbody>
-  </table></div>
-  <p>The probe reads distance travelled. The paper builds its datasets the same way, so its claims about acceleration face the same confound. The direction set mixes constant-velocity and accelerating clips over overlapping distances, which allows a direct test: can the representation tell "accelerating" from "constant velocity" when distance is matched?</p>
-</section>
+<figure><img src="__F5__" alt="Steering read out at later layers, and the fraction of the edit retained">
+<figcaption><b>Fig. 5.</b> The layer-12 edit added to every token, then read out downstream with probes fit on clean data (top). Bottom: fraction of the edit still present along its own direction. Speed and acceleration edits decay like a real clip-to-clip difference; the direction edit decays like a random one for three blocks, then settles between the two.</figcaption></figure>
 
-<section id="limits">
-  <span class="num">NEXT</span>
-  <h2>Limits and next steps</h2>
-  <ul class="plain">
-    <li><b>Per-patch probes.</b> This is where the paper's appendix places its sharpest transition (Fig. 18a, c), and we have not run it yet.</li>
-    <li><b>Training-set size sweep.</b> Probe R² by layer at 77, 150, 314 and 600 training clips would show directly how much early-layer decodability depends on data.</li>
-    <li><b>Acceleration test with distance matched.</b> Use the mixed direction set to classify motion type when distance travelled is matched.</li>
-    <li><b>Stronger steering.</b> Add Δ only to disk tokens, re-apply at every layer, or steer later in the network, to find an edit that later probes read.</li>
-    <li><b>Variance.</b> Paper-protocol steering varies strongly with the train/test split (3.5–14° at 20 probes), and nullspace counts vary by about ±5–10 probes across seeds. Our own protocol uses one split; more splits would tighten the numbers.</li>
-    <li><b>Differences from the paper that remain.</b> Our stimulus is flat 2D (theirs is a shaded 3D sphere on a textured floor); we use 64 directions (theirs 8); some protocol details are unspecified (epochs, batch size, feature scaling, CV groups, layer indexing). Paper values were read off plots and are approximate. The paper's own counts are inconsistent: Fig. 22 gives about 44 direction probes at layer 8, and Table 3 gives 136 dimensions (68 probes).</li>
-  </ul>
-</section>
+<figure><img src="__F6__" alt="Displacement by label, and acceleration probe output on constant-velocity clips">
+<figcaption><b>Fig. 6.</b> Within each set, distance travelled is fixed by the label. The acceleration probe applied to constant-velocity clips predicts 0–12 m/s² in proportion to distance travelled. The paper's datasets have the same structure.</figcaption></figure>
 
-<section id="reproduce">
-  <span class="num">CODE</span>
-  <h2>Reproduce</h2>
-  <p>Repository <code>7peng/world-mechanics-assessment</code>. The environment uses uv (Python 3.12, torch 2.14/CUDA 13, transformers 5.17) and runs on one L40S.</p>
+<h2>Limits and next steps</h2>
+<ul>
+  <li>Per-patch probes: where the paper places its sharpest transition (Fig. 18); not run.</li>
+  <li>Training-set-size sweep at each layer.</li>
+  <li>Acceleration vs constant velocity with distance travelled matched, using the mixed direction set.</li>
+  <li>Steering variants: disk tokens only, re-applied at every layer, or later layers.</li>
+  <li>Our protocol uses one split; paper-protocol steering varies 3.5–14° across splits.</li>
+  <li>Remaining differences from the paper: flat 2D disk vs shaded 3D sphere; 64 directions vs 8.</li>
+</ul>
+
+<h2>Reproduce</h2>
 <pre>uv sync
-uv run python scripts/check_videos.py                 # label checks, centroids, montages
-uv run python scripts/extract_features.py             # 25 depths, mean + per-time-step pools
-uv run python scripts/extract_features.py --random-init
-uv run python scripts/extract_features.py --size 224  # RoPE grid set to 14×14
-uv run python scripts/baseline_features.py            # pixel + centroid baselines
-uv run python scripts/probe_layers.py                 # Exp 1, our protocol
-uv run python scripts/run_inlp.py                     # Exp 2, our protocol
-uv run python scripts/steer_pooled.py                 # Exp 3A, our protocol
-uv run python scripts/steer_propagate.py --dataset direction   # Exp 3B (also speed, acceleration)
-uv run python scripts/diag_persistence.py             # persistence, with baselines
-uv run python scripts/probe_protocol_check.py         # probe type × data regime
-uv run python scripts/paper_protocol.py --features vjepa2       # paper protocol, 256 px
-uv run python scripts/paper_protocol.py --features vjepa2_224   # paper protocol, 224 px
-uv run python scripts/sanity_checks.py                # label checks, confound, CV
-uv run python scripts/build_report.py                 # this page</pre>
-</section>
+uv run python scripts/extract_features.py            # also: --random-init, --size 224
+uv run python scripts/baseline_features.py
+uv run python scripts/probe_layers.py                # Fig. 1
+uv run python scripts/probe_protocol_check.py        # Fig. 2
+uv run python scripts/run_inlp.py                    # Fig. 3
+uv run python scripts/steer_pooled.py                # Fig. 4
+uv run python scripts/steer_propagate.py --dataset direction   # Fig. 5 (also speed, acceleration)
+uv run python scripts/diag_persistence.py
+uv run python scripts/paper_protocol.py --features vjepa2      # paper protocol
+uv run python scripts/sanity_checks.py               # Fig. 6
+uv run python scripts/plot_figures.py && uv run python scripts/build_report.py</pre>
+<p>Repository: <code>7peng/world-mechanics-assessment</code>. Details and every number: <code>docs/notes/part1_findings.md</code>.</p>
 
-<footer>Numbers are on held-out data unless marked. Paper values are from Joseph et al., "Interpreting Physics in Video World Models", arXiv 2602.07050, read directly from the PDF; figure values are approximate.</footer>
+<footer>Joseph et al., "Interpreting Physics in Video World Models", arXiv 2602.07050. Paper values read from its figures.</footer>
 </main>
-</div>
 
-<script type="application/json" id="report-data">__DATA__</script>
 <script type="application/json" id="report-vids">__VIDS__</script>
 <script>
 (function(){
-const D = JSON.parse(document.getElementById('report-data').textContent);
-const VIDS = JSON.parse(document.getElementById('report-vids').textContent);
-const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-const VAR = {direction:'--dir', speed:'--spd', acceleration:'--acc'};
-const NS = 'http://www.w3.org/2000/svg';
-const el = (t, a={}, p) => { const e=document.createElementNS(NS,t); for(const k in a) e.setAttribute(k,a[k]); if(p) p.appendChild(e); return e; };
-const fmt = (v,d=2) => v==null||isNaN(v) ? '–' : (Math.abs(v)>=100? v.toFixed(0) : v.toFixed(d));
-
-/* blocks in the pipeline diagram */
-(function(){ const g=document.getElementById('blocks'); for(let i=0;i<24;i++){ el('rect',{x:400+i*12.9,y:70,width:10,height:58,rx:2,class:i===11?'hl':'box'},g);} })();
-
-/* videos */
-(function(){
-  const box=document.getElementById('videos');
-  VIDS.forEach(v=>{
-    const d=document.createElement('div'); d.className='vid';
-    const vid=document.createElement('video'); vid.src=v.src; vid.muted=true; vid.loop=true; vid.autoplay=true; vid.playsInline=true; vid.setAttribute('aria-label',v.dataset+' clip, '+v.label);
-    const cap=document.createElement('div'); cap.className='cap';
-    cap.innerHTML=`<span class="ds" style="color:var(${VAR[v.dataset]})">${v.dataset}</span><span class="lab">${v.label}</span>`;
-    const meta=document.createElement('div'); meta.className='meta';
-    meta.textContent = v.meta;
-    d.append(vid,cap,meta); box.append(d);
-  });
-})();
-
-/* ---------- generic line chart ---------- */
-function lineChart(host, o){
-  host.innerHTML='';
-  const W=o.w||420, H=o.h||260, m={l:44,r:12,t:12,b:36};
-  const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':o.aria||''}); host.appendChild(svg);
-  const xs=v=> m.l + (o.xlog? (Math.log(v)-Math.log(o.x[0]))/(Math.log(o.x[1])-Math.log(o.x[0])) : (v-o.x[0])/(o.x[1]-o.x[0]))*(W-m.l-m.r);
-  const ys=v=> m.t + (1-(v-o.y[0])/(o.y[1]-o.y[0]))*(H-m.t-m.b);
-  const clampY=v=>Math.max(o.y[0],Math.min(o.y[1],v));
-  (o.yt||[]).forEach(t=>{ el('line',{x1:m.l,x2:W-m.r,y1:ys(t),y2:ys(t),stroke:css('--grid'),'stroke-width':1},svg); const tx=el('text',{x:m.l-6,y:ys(t)+3.5,'text-anchor':'end'},svg); tx.textContent=o.yfmt?o.yfmt(t):t; });
-  (o.xt||[]).forEach(t=>{ const tx=el('text',{x:xs(t),y:H-m.b+15,'text-anchor':'middle'},svg); tx.textContent=t; });
-  el('line',{x1:m.l,x2:W-m.r,y1:H-m.b,y2:H-m.b,stroke:css('--ink2'),'stroke-width':1},svg);
-  if(o.xl){ const t=el('text',{x:(m.l+W-m.r)/2,y:H-4,'text-anchor':'middle',class:'axis-label'},svg); t.textContent=o.xl; }
-  if(o.yl){ const t=el('text',{x:12,y:(m.t+H-m.b)/2,'text-anchor':'middle',class:'axis-label',transform:`rotate(-90 12 ${(m.t+H-m.b)/2})`},svg); t.textContent=o.yl; }
-  (o.bands||[]).forEach(b=>{ const pts=b.lo.map((v,i)=>[b.x[i],v]).concat(b.hi.map((v,i)=>[b.x[i],v]).reverse()).filter(p=>p[1]!=null);
-    el('path',{d:'M'+pts.map(p=>xs(p[0])+','+ys(clampY(p[1]))).join('L')+'Z',fill:b.color,'fill-opacity':.14,stroke:'none'},svg); });
-  (o.hlines||[]).forEach(h=>{ if(h.v<o.y[0]||h.v>o.y[1]) return; el('line',{x1:m.l,x2:W-m.r,y1:ys(h.v),y2:ys(h.v),stroke:h.color,'stroke-width':1.4,'stroke-dasharray':h.dash||'2 3'},svg); });
-  o.series.forEach(s=>{
-    const pts=s.pts.filter(p=>p[1]!=null && !isNaN(p[1]));
-    if(!pts.length) return;
-    if(!s.markersOnly) el('path',{d:'M'+pts.map(p=>xs(p[0])+','+ys(clampY(p[1]))).join('L'),fill:'none',stroke:s.color,'stroke-width':s.w||2,'stroke-dasharray':s.dash||'','stroke-linejoin':'round','stroke-linecap':'round'},svg);
-    if(s.markers||s.markersOnly) pts.forEach(p=>el('circle',{cx:xs(p[0]),cy:ys(clampY(p[1])),r:s.r||3.2,fill:s.hollow?css('--surface'):s.color,stroke:s.color,'stroke-width':s.hollow?2:0},svg));
-  });
-  /* hover */
-  const allX=[...new Set(o.series.flatMap(s=>s.pts.map(p=>p[0])))].sort((a,b)=>a-b);
-  const guide=el('line',{y1:m.t,y2:H-m.b,stroke:css('--ink2'),'stroke-width':1,'stroke-dasharray':'3 3',opacity:0},svg);
-  const tip=document.createElement('div'); tip.className='tip'; tip.hidden=true; host.appendChild(tip);
-  const hit=el('rect',{x:m.l,y:m.t,width:W-m.l-m.r,height:H-m.t-m.b,fill:'transparent'},svg);
-  const move=ev=>{
-    const r=svg.getBoundingClientRect(); const px=(ev.clientX-r.left)/r.width*W;
-    let best=allX[0],bd=1e9; allX.forEach(x=>{const d=Math.abs(xs(x)-px); if(d<bd){bd=d;best=x;}});
-    guide.setAttribute('x1',xs(best)); guide.setAttribute('x2',xs(best)); guide.setAttribute('opacity',.6);
-    const rows=o.series.map(s=>{const p=s.pts.find(q=>q[0]===best); return p&&p[1]!=null?`<div class="r"><span><i style="background:${s.color}"></i>${s.name}</span><span class="v">${(o.vfmt||fmt)(p[1])}</span></div>`:'';}).join('');
-    tip.innerHTML=`<div class="t">${o.xname||'x'} ${best}</div>${rows}`; tip.hidden=false;
-    const hx=(xs(best)/W)*r.width; const tw=tip.offsetWidth;
-    tip.style.left=Math.min(Math.max(hx+12, 0), r.width-tw)+'px'; if(hx+12+tw>r.width) tip.style.left=Math.max(0,hx-tw-12)+'px';
-    tip.style.top='8px';
-  };
-  hit.addEventListener('pointermove',move); hit.addEventListener('pointerleave',()=>{tip.hidden=true;guide.setAttribute('opacity',0);});
-}
-function legend(host, items){
-  host.innerHTML=items.map(i=>{
-    const V3=[css('--dir'),css('--spd'),css('--acc')];
-    const sw = i.dot ? `<svg width="14" height="14"><circle cx="7" cy="7" r="4.5" fill="${i.hollow?'none':i.color}" stroke="${i.color}" stroke-width="2"/></svg>`
-      : i.multi ? `<svg width="30" height="10">${V3.map((c,k)=>`<line x1="${1+k*10}" y1="5" x2="${8+k*10}" y2="5" stroke="${c}" stroke-width="${i.w||2.2}" stroke-dasharray="${i.dash||''}" stroke-linecap="round"/>`).join('')}</svg>`
-      : `<svg width="26" height="10"><line x1="1" y1="5" x2="25" y2="5" stroke="${i.color}" stroke-width="${i.w||2.2}" stroke-dasharray="${i.dash||''}" stroke-linecap="round"/></svg>`;
-    return `<span>${sw}${i.name}</span>`; }).join('');
-}
-const range=(a,b)=>Array.from({length:b-a+1},(_,i)=>a+i);
-const panel=(host,title)=>{ const p=document.createElement('div'); p.className='panel'; p.innerHTML=`<div class="pt">${title}</div>`; const c=document.createElement('div'); c.className='chart'; p.appendChild(c); host.appendChild(p); return c; };
-
-/* ---------- displacement ---------- */
-function drawDisp(){
-  const host=document.getElementById('p-disp'); host.innerHTML='';
-  legend(document.getElementById('lg-disp'),[{name:'mean distance travelled over the clip (px)',color:css('--ink2'),multi:true},{name:'disk diameter ≈ 22 px',color:css('--neutral'),dash:'2 3'}]);
-  [['speed','m/s',[0,1,2,3,4]],['acceleration','m/s²',[0,2,4,6,8,10]]].forEach(([n,u,xt])=>{
-    const c=panel(host,n); const d=D.disp[n];
-    lineChart(c,{x:[0,n==='speed'?4.1:10.1],y:[0,85],yt:[0,20,40,60,80],xt,xl:`${n} label (${u})`,yl:'px',xname:n,
-      series:[{name:'mean distance travelled',color:css(VAR[n]),pts:d.x.map((x,i)=>[+x.toFixed(3),d.y[i]]),markers:true,r:2}],
-      hlines:[{v:22,color:css('--neutral')}],vfmt:v=>v.toFixed(1)+' px',h:220});
-  });
-}
-
-/* ---------- layer-wise ---------- */
-let layerMetric='r2';
-const PAPER_FIG2 = {direction:[0.22,0.93], speed:[0.85,0.96], acceleration:[0.78,0.90]};
-function drawLayers(){
-  const host=document.getElementById('p-layers'); host.innerHTML='';
-  const L=D.layers, P=D.paper;
-  if(layerMetric==='r2'){
-    legend(document.getElementById('lg-layers'),[
-      {name:'our ridge probe',color:css('--ink2'),w:2.6,multi:true},
-      {name:'paper protocol, 256 px',color:css('--paper'),w:1.6},
-      {name:'paper protocol, 224 px',color:css('--paper'),w:1.6,dash:'5 4'},
-      {name:'random-init V-JEPA 2',color:css('--neutral'),w:1.6},
-      {name:'raw pixels',color:css('--neutral'),dash:'1 3'},
-      {name:'centroid trajectory',color:css('--neutral'),dash:'6 3 1 3'},
-      {name:'paper Fig. 2c (approx.)',color:css('--paper'),dot:true,hollow:true}]);
-    document.getElementById('cap-layers').innerHTML='<b>Test R² by depth.</b> The shaded band is the 95% bootstrap CI for our probe. Paper-protocol curves are 5-fold CV means with config selection as written. The nested version is at most 0.028 lower. Layer 0, the mean-pooled patch embedding, carries almost nothing, because mean-pooling a linear map of pixels gives roughly the mean pixel.';
-  } else {
-    legend(document.getElementById('lg-layers'),[
-      {name:'our ridge probe',color:css('--ink2'),w:2.6,multi:true},{name:'random-init V-JEPA 2',color:css('--neutral'),w:1.6},
-      {name:'raw pixels',color:css('--neutral'),dash:'1 3'},{name:'centroid trajectory',color:css('--neutral'),dash:'6 3 1 3'},
-      {name:'direction probe → θ in speed set',color:css('--dir'),dash:'1 3',w:1.6},{name:'→ θ in acceleration set',color:css('--dir'),dash:'5 3',w:1.6}]);
-    document.getElementById('cap-layers').innerHTML='<b>Test error by depth</b> (circular MAE for direction, MAE for speed and acceleration). R² saturates early; error keeps improving with depth for the pretrained model and not for the random one. Direction probes trained on the direction set transfer to θ in the other two sets, with a penalty that shrinks from layer 8 on.';
-  }
-  ['direction','speed','acceleration'].forEach(n=>{
-    const c=panel(host,n), l=L[n], col=css(VAR[n]);
-    const X=range(0,24);
-    if(layerMetric==='r2'){
-      const s=[
-        {name:'our ridge probe',color:col,w:2.6,pts:X.map(i=>[i,l.ridge_r2[i]])},
-        {name:'paper protocol, 256 px',color:css('--paper'),w:1.6,pts:P.vjepa2[n].exact.map((v,i)=>[i+1,v])},
-        {name:'paper protocol, 224 px',color:css('--paper'),w:1.6,dash:'5 4',pts:P.vjepa2_224[n].exact.map((v,i)=>[i+1,v])},
-        {name:'random-init V-JEPA 2',color:css('--neutral'),w:1.6,pts:X.map(i=>[i,l.random_r2[i]])},
-        {name:'paper Fig. 2c (approx.)',color:css('--paper'),markersOnly:true,hollow:true,r:4,pts:[[1,PAPER_FIG2[n][0]],[9,PAPER_FIG2[n][1]]]}];
-      lineChart(c,{x:[0,24],y:[0,1],yt:[0,.25,.5,.75,1],xt:[0,4,8,12,16,20,24],xl:'our layer (paper = ours − 1)',yl:'test R²',xname:'layer',series:s,
-        bands:[{x:X,lo:l.ridge_ci.map(v=>v[0]),hi:l.ridge_ci.map(v=>v[1]),color:col}],
-        hlines:[{v:l.pixels_r2,color:css('--neutral'),dash:'1 3'},{v:l.centroid_r2,color:css('--neutral'),dash:'6 3 1 3'}]});
-    } else {
-      const ymax = n==='direction'?90:(n==='speed'?1:2.6);
-      const s=[{name:'our ridge probe',color:col,w:2.6,pts:X.map(i=>[i,l.ridge_err[i]])},{name:'random-init V-JEPA 2',color:css('--neutral'),w:1.6,pts:X.map(i=>[i,l.random_err[i]])}];
-      if(n==='direction'){ s.push({name:'direction probe → θ in speed set',color:col,dash:'1 3',w:1.6,pts:X.map(i=>[i,l.transfer_speed[i]])}); s.push({name:'→ θ in acceleration set',color:col,dash:'5 3',w:1.6,pts:X.map(i=>[i,l.transfer_acc[i]])}); }
-      lineChart(c,{x:[0,24],y:[0,ymax],yt:n==='direction'?[0,15,30,45,60,75,90]:(n==='speed'?[0,.25,.5,.75,1]:[0,1,2]),xt:[0,4,8,12,16,20,24],
-        xl:'our layer (paper = ours − 1)',yl:n==='direction'?'circular MAE (°)':(n==='speed'?'MAE (m/s)':'MAE (m/s²)'),xname:'layer',series:s,
-        hlines:[{v:l.pixels_err,color:css('--neutral'),dash:'1 3'},{v:l.centroid_err,color:css('--neutral'),dash:'6 3 1 3'}],
-        vfmt:v=>n==='direction'?v.toFixed(1)+'°':v.toFixed(3)});
-    }
-  });
-}
-function fillLayerTable(){
-  const rows=[['our ridge probe',i=>D.layers.direction.ridge_r2[i+1]],
-    ['paper protocol, 256 px',i=>D.paper.vjepa2.direction.exact[i]],
-    ['paper protocol, 224 px',i=>D.paper.vjepa2_224.direction.exact[i]],
-    ['random-init V-JEPA 2',i=>D.layers.direction.random_r2[i+1]],
-    ['paper, Fig. 2c (approx.)',i=>({0:0.22,8:0.93})[i]]];
-  document.getElementById('t-layers').innerHTML=rows.map(([nm,f])=>`<tr><td>${nm}</td>${[0,2,4,6,8,11,23].map(i=>`<td class="num">${f(i)==null?'–':f(i).toFixed(2)}</td>`).join('')}</tr>`).join('');
-}
-
-/* ---------- protocol check ---------- */
-let regime='full';
-function drawProto(){
-  const pc=D.protocol_check, L=pc.layers, r=pc[regime];
-  const items=[['ridge_z','ridge, standardised (ours)',css('--dir'),''],['ridge_raw','ridge, raw features',css('--dir'),'5 4'],['gd_paper','gradient-trained, raw, 100 epochs (paper)',css('--paper'),''],['gd_paper_long','gradient-trained, raw, 1000 epochs',css('--paper'),'1 3'],['gd_paper_z','gradient-trained, standardised',css('--paper'),'5 4']];
-  legend(document.getElementById('lg-proto'),items.map(i=>({name:i[1],color:i[2],dash:i[3]})).concat([{name:'paper Fig. 2c (approx.)',color:css('--paper'),dot:true,hollow:true}]));
-  lineChart(document.getElementById('c-proto'),{w:760,h:300,x:[0,24],y:[0,1],yt:[0,.25,.5,.75,1],xt:[1,4,8,12,16,20,24],xl:'our layer (paper = ours − 1)',yl:'direction R² (5-fold)',xname:'layer',
-    series:items.map(i=>({name:i[1],color:i[2],dash:i[3],markers:true,r:2.6,pts:L.map((x,k)=>[x,r[i[0]][k].r2])})).concat([{name:'paper Fig. 2c',color:css('--paper'),markersOnly:true,hollow:true,r:4.5,pts:[[1,0.22],[9,0.93]]}])});
-}
-
-/* ---------- INLP ---------- */
-function drawInlp(){
-  const host=document.getElementById('p-inlp'); host.innerHTML='';
-  legend(document.getElementById('lg-inlp'),[{name:'probe directions (nullspace probing)',color:css('--ink2'),w:2.6},{name:'random directions',color:css('--neutral')},{name:'top principal components',color:css('--paper'),dash:'5 4'}]);
-  ['direction','speed','acceleration'].forEach(n=>{
-    const c=panel(host,`${n} · layer ${D.inlp.layer}`), m=D.inlp.main[n], k=n==='direction'?2:1;
-    lineChart(c,{x:[0,n==='direction'?300:150],y:[-0.05,1],yt:[0,.25,.5,.75,1],xt:n==='direction'?[0,100,200,300]:[0,50,100,150],xl:'dimensions removed',yl:'test R²',xname:'dims',
-      series:[{name:'nullspace',color:css(VAR[n]),w:2.4,pts:m.probe.map((v,i)=>[i*k,v])},{name:'random',color:css('--neutral'),pts:m.random.map((v,i)=>[i*k,v])},{name:'PCA',color:css('--paper'),dash:'5 4',w:1.6,pts:m.pca.map((v,i)=>[i*k,v])}]});
-  });
-}
-let dimsMode='ours';
-function drawDims(){
-  const ser=[], bands=[]; const cap=document.getElementById('cap-dims');
-  ['direction','speed','acceleration'].forEach(n=>{
-    const k=n==='direction'?2:1;
-    if(dimsMode==='ours'){
-      const a=D.inlp.sweep[n]['n_to_0.3']; ser.push({name:n+' (at 80·k: never dropped)',color:css(VAR[n]),markers:true,r:2.6,pts:a.map((v,i)=>[i,v==null?80*k:v*k])});
-    } else {
-      const P=D.paper[dimsMode==='paper'?'vjepa2':'vjepa2_224'][n];
-      ser.push({name:n+', C.11 rule (median of 3 seeds)',color:css(VAR[n]),markers:true,r:2.6,pts:P.n_stop_C11.map((v,i)=>[i+1,v*k])});
-      ser.push({name:n+', Fig. 22 rule',color:css(VAR[n]),dash:'4 3',w:1.4,pts:P.n_stop_fig22.map((v,i)=>[i+1,v*k])});
-      const runs=P.n_stop_C11_runs.map(r=>r.map(v=>(v==null?100:v)*k));
-      bands.push({x:runs[0].map((_,i)=>i+1),lo:runs[0].map((_,i)=>Math.min(...runs.map(r=>r[i]))),hi:runs[0].map((_,i)=>Math.max(...runs.map(r=>r[i]))),color:css(VAR[n])});
-    }
-  });
-  if(dimsMode!=='ours'){
-    ser.push({name:'paper Fig. 22, direction (≈44 probes = 88 dims)',color:css('--dir'),markersOnly:true,hollow:true,r:4.5,pts:[[9,88]]});
-    ser.push({name:'paper Fig. 22, speed (≈28 probes)',color:css('--spd'),markersOnly:true,hollow:true,r:4.5,pts:[[9,28]]});
-  }
-  legend(document.getElementById('lg-dims'), dimsMode==='ours'
-    ? ['direction','speed','acceleration'].map(n=>({name:n,color:css(VAR[n])}))
-    : ['direction','speed','acceleration'].map(n=>({name:n,color:css(VAR[n])})).concat([{name:'solid: C.11 rule (band: range over 3 seeds)',color:css('--ink2')},{name:'dashed: Fig. 22 rule',color:css('--ink2'),dash:'4 3'},{name:'paper Fig. 22 at its layer 8 (approx.)',color:css('--paper'),dot:true,hollow:true}]));
-  lineChart(document.getElementById('c-dims'),{w:760,h:300,x:[0,24],y:[0,200],yt:[0,50,100,150,200],xt:[0,4,8,12,16,20,24],xl:'our layer (paper = ours − 1)',yl:'dimensions removed',xname:'layer',series:ser,bands,vfmt:v=>v.toFixed(0)});
-  cap.innerHTML = dimsMode==='ours'
-    ? '<b>Dimensions removed before val R² falls below 0.3</b> (our ridge protocol, budget 80 probes; points at 160 or 80 never dropped). Layers 1–3 (direction) and 1–6 (speed, acceleration) never drop within budget. Direction needs 106–136 dimensions at layers 4–7 and 48–86 from layer 8 on. The drop between our layers 7 and 8 is the block just before the paper\'s emergence layer. These counts use val R² at a val-chosen α, so they are slightly optimistic.'
-    : '<b>Paper protocol</b> (Adam probes, 80/20 split, X ← X − XQQᵀ), median of 3 seeds; the band is the range over seeds. Dimensions = 2 × probes for direction and 1 × probes for speed and acceleration. The C.11 rule stops at direction R² &lt; 0.1 or error &gt; 80°, and speed or acceleration R² &lt; 0.05 or MAE &gt; 90% of a constant-mean baseline. The Fig. 22 caption rule stops at direction R² &lt; 0.3 and speed R² &lt; 0.1. At the paper\'s layer 8 (our 9) the median is 60 direction probes (120 dims), 44 speed and 26 acceleration. The paper reports about 44 and 28 in Fig. 22. Before layer 8 its direction count stays below 10; ours is 15–34.';
-}
-
-/* ---------- steering ---------- */
-const FIG24={N:[1,2,3,5,10,15,20],target:[77,66,61,51,24,14,11.9],truth:[6,13,17,26,59,69,71]};
-function drawSteer(){
-  const host=document.getElementById('p-steer'); host.innerHTML='';
-  legend(document.getElementById('lg-steer'),[{name:'our protocol, strict read-out',color:css('--ink2'),w:2.6,multi:true},{name:'our protocol, paper-style read-out',color:css('--ink2'),dash:'5 4',w:1.6,multi:true},
-    {name:'paper protocol, 256 px (mean of 3 splits)',color:css('--paper'),w:1.6},{name:'paper protocol, 224 px',color:css('--paper'),dash:'2 3',w:1.6},{name:'paper Fig. 24 (approx.)',color:css('--paper'),dot:true,hollow:true},{name:'random edit, same norm',color:css('--neutral'),w:1.6}]);
-  const S=D.steer_pooled;
-  ['direction','speed','acceleration'].forEach(n=>{
-    const c=panel(host,n), s=S[n], col=css(VAR[n]);
-    const ser=[{name:'our protocol, strict read-out',color:col,w:2.6,markers:true,r:2.6,pts:S.n_list.map((N,i)=>[N,s.strict[i]])},
-      {name:'our protocol, paper-style read-out',color:col,dash:'5 4',w:1.6,pts:S.n_list.map((N,i)=>[N,s.paper[i]])},
-      {name:'random edit, same norm',color:css('--neutral'),w:1.6,pts:S.n_list.map((N,i)=>[N,s.random[i]])}];
-    if(n==='direction'){
-      const P=D.paper.vjepa2.direction.steer.block_output, P2=D.paper.vjepa2_224.direction.steer.block_output;
-      ser.push({name:'paper protocol, 256 px',color:css('--paper'),w:1.6,pts:P.N.map((N,i)=>[N,P.to_target[i]])});
-      ser.push({name:'paper protocol, 224 px',color:css('--paper'),dash:'2 3',w:1.6,pts:P2.N.map((N,i)=>[N,P2.to_target[i]])});
-      ser.push({name:'paper Fig. 24 (approx.)',color:css('--paper'),markersOnly:true,hollow:true,r:4,pts:FIG24.N.map((N,i)=>[N,FIG24.target[i]])});
-    }
-    const ymax=n==='direction'?100:(n==='speed'?1.5:4);
-    lineChart(c,{x:[1,100],xlog:true,y:[0,ymax],yt:n==='direction'?[0,25,50,75,100]:(n==='speed'?[0,.5,1,1.5]:[0,1,2,3,4]),xt:[1,2,5,10,20,50,100],xl:'probes in steering subspace (N)',
-      yl:n==='direction'?'error to target (°)':(n==='speed'?'MAE to target (m/s)':'MAE to target (m/s²)'),xname:'N =',series:ser,vfmt:v=>n==='direction'?v.toFixed(1)+'°':v.toFixed(3)});
-  });
-  const row=(nm,arr,base)=>`<tr><td>${nm}</td>${arr.map(v=>`<td class="num">${v==null?'–':v.toFixed(1)}</td>`).join('')}<td class="num">${base==null?'–':base.toFixed(1)}</td></tr>`;
-  const rowsFor=(lab,P)=>row(lab+': error to target',P.to_target,P.base_to_target)+row(lab+': error to true label',P.to_truth,P.base_to_truth);
-  const S2=D.paper.vjepa2.direction.steer, S3=D.paper.vjepa2_224.direction.steer;
-  document.getElementById('t-steer').innerHTML =
-    rowsFor('Paper protocol, 256 px, layer 8 = block 8 output',S2.block_output) +
-    rowsFor('Paper protocol, 256 px, layer 8 = hidden state 8',S2.embedding_is_0) +
-    rowsFor('Paper protocol, 224 px, layer 8 = block 8 output',S3.block_output) +
-    row('Paper Fig. 24: error to target (approx.)', FIG24.target, 82.9) +
-    row('Paper Fig. 24: error to true label (approx.)', FIG24.truth, 4.9);
-}
-function drawProp(){
-  const host=document.getElementById('p-prop'); host.innerHTML='';
-  const Ns=D.steer_prop.direction.n_list;
-  const shade=i=>0.35+0.65*i/(Ns.length-1);
-  legend(document.getElementById('lg-prop'),Ns.map((N,i)=>({name:'N = '+N,color:css('--ink2'),w:1+1.6*shade(i),multi:true})).concat([{name:'random edit, same norm as N = 20',color:css('--neutral'),w:1.6},{name:'unsteered probe error (floor)',color:css('--paper'),dash:'5 4',w:1.4}]));
-  ['direction','speed','acceleration'].forEach(n=>{
-    const c=panel(host,n), s=D.steer_prop[n], col=css(VAR[n]);
-    const ser=Ns.map((N,i)=>({name:'N = '+N,color:col,w:1+1.6*shade(i),pts:s.layers.map((l,j)=>[l,s.steer[N][j]]),markers:N===20,r:2.2}));
-    ser.push({name:'random edit',color:css('--neutral'),w:1.6,pts:s.layers.map((l,j)=>[l,s.random[j]])});
-    ser.push({name:'unsteered probe error',color:css('--paper'),dash:'5 4',w:1.4,pts:s.layers.map((l,j)=>[l,s.clean_truth[j]])});
-    const ymax=n==='direction'?100:(n==='speed'?1.5:4);
-    lineChart(c,{x:[12,24],y:[0,ymax],yt:n==='direction'?[0,25,50,75,100]:(n==='speed'?[0,.5,1,1.5]:[0,1,2,3,4]),xt:[12,14,16,18,20,22,24],xl:'read-out layer',
-      yl:n==='direction'?'error to target (°)':(n==='speed'?'MAE (m/s)':'MAE (m/s²)'),xname:'layer',series:ser,vfmt:v=>n==='direction'?v.toFixed(1)+'°':v.toFixed(3)});
-  });
-}
-function drawPersist(){
-  const host=document.getElementById('p-persist'); host.innerHTML='';
-  legend(document.getElementById('lg-persist'),[{name:'steering edit Δ (N = 20)',color:css('--ink2'),w:2.6,multi:true},{name:'real clip-to-clip difference',color:css('--paper'),w:1.6,dash:'5 4'},{name:'random Δ, same norm',color:css('--neutral'),w:1.6}]);
-  ['direction','speed','acceleration'].forEach(n=>{
-    const c=panel(host,n), P=D.persist[n];
-    lineChart(c,{x:[12,24],y:[0,1],yt:[0,.25,.5,.75,1],xt:[12,16,20,24],xl:'layer',yl:'fraction retained',xname:'layer',
-      series:[{name:'steering edit Δ',color:css(VAR[n]),w:2.6,markers:true,r:2.4,pts:P.layers.map((l,j)=>[l,P.retained_frac[j]])},
-        {name:'clip-to-clip difference',color:css('--paper'),dash:'5 4',w:1.6,pts:P.layers.map((l,j)=>[l,P.retained_frac_natural[j]])},
-        {name:'random Δ',color:css('--neutral'),w:1.6,pts:P.layers.map((l,j)=>[l,P.retained_frac_random[j]])}]});
-  });
-}
-
-/* ---------- wiring ---------- */
-function seg(ids, set){ ids.forEach(([id,val])=>document.getElementById(id).addEventListener('click',()=>{ ids.forEach(([j])=>document.getElementById(j).setAttribute('aria-pressed',j===id)); set(val); })); }
-seg([['m-r2','r2'],['m-err','err']], v=>{layerMetric=v; drawLayers();});
-seg([['r-full','full'],['r-paper','paperlike']], v=>{regime=v; drawProto();});
-seg([['d-ours','ours'],['d-paper','paper'],['d-paper224','paper224']], v=>{dimsMode=v; drawDims();});
-function drawAll(){ drawDisp(); drawLayers(); fillLayerTable(); drawProto(); drawInlp(); drawDims(); drawSteer(); drawProp(); drawPersist(); }
-drawAll();
-const mq=window.matchMedia('(prefers-color-scheme: dark)'); mq.addEventListener&&mq.addEventListener('change',drawAll);
-new MutationObserver(drawAll).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+const V=JSON.parse(document.getElementById('report-vids').textContent);
+const box=document.getElementById('videos');
+V.forEach(v=>{const d=document.createElement('div');d.className='vid';
+  const el=document.createElement('video');el.src=v.src;el.muted=true;el.loop=true;el.autoplay=true;el.playsInline=true;el.setAttribute('aria-label',v.dataset+' clip, '+v.label);
+  const k=document.createElement('div');k.className='k';k.textContent=v.dataset+' · '+v.label;
+  d.append(el,k);box.append(d);});
 })();
 </script>
