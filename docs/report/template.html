@@ -386,7 +386,7 @@ footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--rule);font-si
   </figure>
   <figure>
     <div class="legend" id="lg-persist"></div>
-    <div class="panel"><div class="chart" id="c-persist"></div></div>
+    <div class="panels" id="p-persist"></div>
     <figcaption><b>How much of the injected shift Δ survives.</b> This is the fraction of Δ still pointing along its own direction in the pooled residual stream, (steered − clean)·Δ / ‖Δ‖², with N = 20 and 32 test clips per variable. The residual connection alone would keep it at 1.0. Instead the blocks write back about −Δ, so the model actively undoes the edit. Our reading: the pooled probe subspace is a faithful read-out of the layer-12 state but not a lever later blocks use; they appear to recompute motion from where the disk tokens are.</figcaption>
   </figure>
 </section>
@@ -466,7 +466,7 @@ const fmt = (v,d=2) => v==null||isNaN(v) ? '–' : (Math.abs(v)>=100? v.toFixed(
     const cap=document.createElement('div'); cap.className='cap';
     cap.innerHTML=`<span class="ds" style="color:var(${VAR[v.dataset]})">${v.dataset}</span><span class="lab">${v.label}</span>`;
     const meta=document.createElement('div'); meta.className='meta';
-    meta.textContent = v.dataset==='direction' ? `constant velocity, ${v.speed} m/s` : `θ = ${v.theta}°`;
+    meta.textContent = v.meta;
     d.append(vid,cap,meta); box.append(d);
   });
 })();
@@ -512,7 +512,9 @@ function lineChart(host, o){
 }
 function legend(host, items){
   host.innerHTML=items.map(i=>{
+    const V3=[css('--dir'),css('--spd'),css('--acc')];
     const sw = i.dot ? `<svg width="14" height="14"><circle cx="7" cy="7" r="4.5" fill="${i.hollow?'none':i.color}" stroke="${i.color}" stroke-width="2"/></svg>`
+      : i.multi ? `<svg width="30" height="10">${V3.map((c,k)=>`<line x1="${1+k*10}" y1="5" x2="${8+k*10}" y2="5" stroke="${c}" stroke-width="${i.w||2.2}" stroke-dasharray="${i.dash||''}" stroke-linecap="round"/>`).join('')}</svg>`
       : `<svg width="26" height="10"><line x1="1" y1="5" x2="25" y2="5" stroke="${i.color}" stroke-width="${i.w||2.2}" stroke-dasharray="${i.dash||''}" stroke-linecap="round"/></svg>`;
     return `<span>${sw}${i.name}</span>`; }).join('');
 }
@@ -522,11 +524,11 @@ const panel=(host,title)=>{ const p=document.createElement('div'); p.className='
 /* ---------- displacement ---------- */
 function drawDisp(){
   const host=document.getElementById('p-disp'); host.innerHTML='';
-  legend(document.getElementById('lg-disp'),[{name:'mean distance travelled (px)',color:css('--ink2')},{name:'disk diameter ≈ 22 px',color:css('--neutral'),dash:'2 3'}]);
+  legend(document.getElementById('lg-disp'),[{name:'mean distance travelled over the clip (px)',color:css('--ink2'),multi:true},{name:'disk diameter ≈ 22 px',color:css('--neutral'),dash:'2 3'}]);
   [['speed','m/s',[0,1,2,3,4]],['acceleration','m/s²',[0,2,4,6,8,10]]].forEach(([n,u,xt])=>{
     const c=panel(host,n); const d=D.disp[n];
-    lineChart(c,{x:[0,n==='speed'?4.1:10.1],y:[0,80],yt:[0,20,40,60,80],xt,xl:`${n} label (${u})`,yl:'px',xname:n,
-      series:[{name:'distance',color:css(VAR[n]),pts:d.x.map((x,i)=>[+x.toFixed(3),d.y[i]]),markers:true,r:2}],
+    lineChart(c,{x:[0,n==='speed'?4.1:10.1],y:[0,70],yt:[0,20,40,60],xt,xl:`${n} label (${u})`,yl:'px',xname:n,
+      series:[{name:'mean distance travelled',color:css(VAR[n]),pts:d.x.map((x,i)=>[+x.toFixed(3),d.y[i]]),markers:true,r:2}],
       hlines:[{v:22,color:css('--neutral')}],vfmt:v=>v.toFixed(1)+' px',h:220});
   });
 }
@@ -539,17 +541,17 @@ function drawLayers(){
   const L=D.layers, P=D.paper;
   if(layerMetric==='r2'){
     legend(document.getElementById('lg-layers'),[
-      {name:'our ridge probe',color:css('--ink2'),w:2.6},
+      {name:'our ridge probe',color:css('--ink2'),w:2.6,multi:true},
       {name:'paper protocol, 256 px',color:css('--paper'),w:1.6},
       {name:'paper protocol, 224 px',color:css('--paper'),w:1.6,dash:'5 4'},
-      {name:'random-init V-JEPA 2',color:css('--neutral')},
+      {name:'random-init V-JEPA 2',color:css('--neutral'),w:1.6},
       {name:'raw pixels',color:css('--neutral'),dash:'1 3'},
       {name:'centroid trajectory',color:css('--neutral'),dash:'6 3 1 3'},
       {name:'paper Fig. 2c (approx.)',color:css('--paper'),dot:true,hollow:true}]);
     document.getElementById('cap-layers').innerHTML='<b>Test R² by depth.</b> The shaded band is the 95% bootstrap CI for our probe. Paper-protocol curves are 5-fold CV means with config selection as written. The nested version differs by at most 0.03. Layer 0, the mean-pooled patch embedding, carries almost nothing, because mean-pooling a linear map of pixels gives roughly the mean pixel.';
   } else {
     legend(document.getElementById('lg-layers'),[
-      {name:'our ridge probe',color:css('--ink2'),w:2.6},{name:'random-init V-JEPA 2',color:css('--neutral')},
+      {name:'our ridge probe',color:css('--ink2'),w:2.6,multi:true},{name:'random-init V-JEPA 2',color:css('--neutral'),w:1.6},
       {name:'raw pixels',color:css('--neutral'),dash:'1 3'},{name:'centroid trajectory',color:css('--neutral'),dash:'6 3 1 3'},
       {name:'direction probe → θ in speed set',color:css('--dir'),dash:'1 3',w:1.6},{name:'→ θ in acceleration set',color:css('--dir'),dash:'5 3',w:1.6}]);
     document.getElementById('cap-layers').innerHTML='<b>Test error by depth</b> (circular MAE for direction, MAE for speed and acceleration). R² saturates early; error keeps improving with depth for the pretrained model and not for the random one. Direction probes trained on the direction set transfer to θ in the other two sets with a small penalty.';
@@ -559,19 +561,19 @@ function drawLayers(){
     const X=range(0,24);
     if(layerMetric==='r2'){
       const s=[
-        {name:'ours',color:col,w:2.6,pts:X.map(i=>[i,l.ridge_r2[i]])},
-        {name:'paper 256',color:css('--paper'),w:1.6,pts:P.vjepa2[n].exact.map((v,i)=>[i+1,v])},
-        {name:'paper 224',color:css('--paper'),w:1.6,dash:'5 4',pts:P.vjepa2_224[n].exact.map((v,i)=>[i+1,v])},
-        {name:'random-init',color:css('--neutral'),w:1.6,pts:X.map(i=>[i,l.random_r2[i]])},
-        {name:'paper Fig. 2c',color:css('--paper'),markersOnly:true,hollow:true,r:4,pts:[[1,PAPER_FIG2[n][0]],[9,PAPER_FIG2[n][1]]]}];
+        {name:'our ridge probe',color:col,w:2.6,pts:X.map(i=>[i,l.ridge_r2[i]])},
+        {name:'paper protocol, 256 px',color:css('--paper'),w:1.6,pts:P.vjepa2[n].exact.map((v,i)=>[i+1,v])},
+        {name:'paper protocol, 224 px',color:css('--paper'),w:1.6,dash:'5 4',pts:P.vjepa2_224[n].exact.map((v,i)=>[i+1,v])},
+        {name:'random-init V-JEPA 2',color:css('--neutral'),w:1.6,pts:X.map(i=>[i,l.random_r2[i]])},
+        {name:'paper Fig. 2c (approx.)',color:css('--paper'),markersOnly:true,hollow:true,r:4,pts:[[1,PAPER_FIG2[n][0]],[9,PAPER_FIG2[n][1]]]}];
       lineChart(c,{x:[0,24],y:[0,1],yt:[0,.25,.5,.75,1],xt:[0,4,8,12,16,20,24],xl:'our layer (paper = ours − 1)',yl:'test R²',xname:'layer',series:s,
         bands:[{x:X,lo:l.ridge_ci.map(v=>v[0]),hi:l.ridge_ci.map(v=>v[1]),color:col}],
         hlines:[{v:l.pixels_r2,color:css('--neutral'),dash:'1 3'},{v:l.centroid_r2,color:css('--neutral'),dash:'6 3 1 3'}]});
     } else {
-      const ymax = n==='direction'?30:(n==='speed'?1:2.6);
-      const s=[{name:'ours',color:col,w:2.6,pts:X.map(i=>[i,l.ridge_err[i]])},{name:'random-init',color:css('--neutral'),w:1.6,pts:X.map(i=>[i,l.random_err[i]])}];
-      if(n==='direction'){ s.push({name:'→ speed-set θ',color:col,dash:'1 3',w:1.6,pts:X.map(i=>[i,l.transfer_speed[i]])}); s.push({name:'→ accel-set θ',color:col,dash:'5 3',w:1.6,pts:X.map(i=>[i,l.transfer_acc[i]])}); }
-      lineChart(c,{x:[0,24],y:[0,ymax],yt:n==='direction'?[0,10,20,30]:(n==='speed'?[0,.25,.5,.75,1]:[0,1,2]),xt:[0,4,8,12,16,20,24],
+      const ymax = n==='direction'?90:(n==='speed'?1:2.6);
+      const s=[{name:'our ridge probe',color:col,w:2.6,pts:X.map(i=>[i,l.ridge_err[i]])},{name:'random-init V-JEPA 2',color:css('--neutral'),w:1.6,pts:X.map(i=>[i,l.random_err[i]])}];
+      if(n==='direction'){ s.push({name:'direction probe → θ in speed set',color:col,dash:'1 3',w:1.6,pts:X.map(i=>[i,l.transfer_speed[i]])}); s.push({name:'→ θ in acceleration set',color:col,dash:'5 3',w:1.6,pts:X.map(i=>[i,l.transfer_acc[i]])}); }
+      lineChart(c,{x:[0,24],y:[0,ymax],yt:n==='direction'?[0,15,30,45,60,75,90]:(n==='speed'?[0,.25,.5,.75,1]:[0,1,2]),xt:[0,4,8,12,16,20,24],
         xl:'our layer (paper = ours − 1)',yl:n==='direction'?'circular MAE (°)':(n==='speed'?'MAE (m/s)':'MAE (m/s²)'),xname:'layer',series:s,
         hlines:[{v:l.pixels_err,color:css('--neutral'),dash:'1 3'},{v:l.centroid_err,color:css('--neutral'),dash:'6 3 1 3'}],
         vfmt:v=>n==='direction'?v.toFixed(1)+'°':v.toFixed(3)});
@@ -591,7 +593,7 @@ function fillLayerTable(){
 let regime='full';
 function drawProto(){
   const pc=D.protocol_check, L=pc.layers, r=pc[regime];
-  const items=[['ridge_z','ridge, standardised (ours)',css('--dir'),''],['ridge_raw','ridge, raw features',css('--dir'),'5 4'],['gd_paper','gradient-trained, raw (paper)',css('--paper'),''],['gd_paper_z','gradient-trained, standardised',css('--paper'),'5 4']];
+  const items=[['ridge_z','ridge, standardised (ours)',css('--dir'),''],['ridge_raw','ridge, raw features',css('--dir'),'5 4'],['gd_paper','gradient-trained, raw, 100 epochs (paper)',css('--paper'),''],['gd_paper_long','gradient-trained, raw, 1000 epochs',css('--paper'),'1 3'],['gd_paper_z','gradient-trained, standardised',css('--paper'),'5 4']];
   legend(document.getElementById('lg-proto'),items.map(i=>({name:i[1],color:i[2],dash:i[3]})).concat([{name:'paper Fig. 2c (approx.)',color:css('--paper'),dot:true,hollow:true}]));
   lineChart(document.getElementById('c-proto'),{w:760,h:300,x:[0,24],y:[0,1],yt:[0,.25,.5,.75,1],xt:[1,4,8,12,16,20,24],xl:'our layer (paper = ours − 1)',yl:'direction R² (5-fold)',xname:'layer',
     series:items.map(i=>({name:i[1],color:i[2],dash:i[3],markers:true,r:2.6,pts:L.map((x,k)=>[x,r[i[0]][k].r2])})).concat([{name:'paper Fig. 2c',color:css('--paper'),markersOnly:true,hollow:true,r:4.5,pts:[[1,0.22],[9,0.93]]}])});
@@ -609,22 +611,27 @@ function drawInlp(){
 }
 let dimsMode='ours';
 function drawDims(){
-  const ser=[]; const cap=document.getElementById('cap-dims');
+  const ser=[], bands=[]; const cap=document.getElementById('cap-dims');
   ['direction','speed','acceleration'].forEach(n=>{
     const k=n==='direction'?2:1;
     if(dimsMode==='ours'){
-      const a=D.inlp.sweep[n]['n_to_0.3']; ser.push({name:n,color:css(VAR[n]),markers:true,r:2.6,pts:a.map((v,i)=>[i,v==null?80*k:v*k])});
+      const a=D.inlp.sweep[n]['n_to_0.3']; ser.push({name:n+' (at 80·k: never dropped)',color:css(VAR[n]),markers:true,r:2.6,pts:a.map((v,i)=>[i,v==null?80*k:v*k])});
     } else {
       const P=D.paper[dimsMode==='paper'?'vjepa2':'vjepa2_224'][n];
-      ser.push({name:n+' (C.11 rule)',color:css(VAR[n]),markers:true,r:2.6,pts:P.n_stop_C11.map((v,i)=>[i+1,v==null?null:v*k])});
-      ser.push({name:n+' (Fig. 22 rule)',color:css(VAR[n]),dash:'4 3',w:1.4,pts:P.n_stop_fig22.map((v,i)=>[i+1,v==null?null:v*k])});
+      ser.push({name:n+', C.11 rule (median of 3 seeds)',color:css(VAR[n]),markers:true,r:2.6,pts:P.n_stop_C11.map((v,i)=>[i+1,v*k])});
+      ser.push({name:n+', Fig. 22 rule',color:css(VAR[n]),dash:'4 3',w:1.4,pts:P.n_stop_fig22.map((v,i)=>[i+1,v*k])});
+      const runs=P.n_stop_C11_runs.map(r=>r.map(v=>(v==null?100:v)*k));
+      bands.push({x:runs[0].map((_,i)=>i+1),lo:runs[0].map((_,i)=>Math.min(...runs.map(r=>r[i]))),hi:runs[0].map((_,i)=>Math.max(...runs.map(r=>r[i]))),color:css(VAR[n])});
     }
   });
-  if(dimsMode!=='ours') ser.push({name:'paper Fig. 22 at layer 8 (approx.)',color:css('--paper'),markersOnly:true,hollow:true,r:4.5,pts:[[9,88],[9.001,28]]});
+  if(dimsMode!=='ours'){
+    ser.push({name:'paper Fig. 22, direction (≈44 probes = 88 dims)',color:css('--dir'),markersOnly:true,hollow:true,r:4.5,pts:[[9,88]]});
+    ser.push({name:'paper Fig. 22, speed (≈28 probes)',color:css('--spd'),markersOnly:true,hollow:true,r:4.5,pts:[[9,28]]});
+  }
   legend(document.getElementById('lg-dims'), dimsMode==='ours'
     ? ['direction','speed','acceleration'].map(n=>({name:n,color:css(VAR[n])}))
-    : ['direction','speed','acceleration'].map(n=>({name:n,color:css(VAR[n])})).concat([{name:'solid: C.11 stopping rule',color:css('--ink2')},{name:'dashed: Fig. 22 rule',color:css('--ink2'),dash:'4 3'},{name:'paper, layer 8 (approx.)',color:css('--paper'),dot:true,hollow:true}]));
-  lineChart(document.getElementById('c-dims'),{w:760,h:300,x:[0,24],y:[0,200],yt:[0,50,100,150,200],xt:[0,4,8,12,16,20,24],xl:'our layer (paper = ours − 1)',yl:'dimensions removed',xname:'layer',series:ser,vfmt:v=>v.toFixed(0)});
+    : ['direction','speed','acceleration'].map(n=>({name:n,color:css(VAR[n])})).concat([{name:'solid: C.11 rule (band: range over 3 seeds)',color:css('--ink2')},{name:'dashed: Fig. 22 rule',color:css('--ink2'),dash:'4 3'},{name:'paper Fig. 22 at its layer 8 (approx.)',color:css('--paper'),dot:true,hollow:true}]));
+  lineChart(document.getElementById('c-dims'),{w:760,h:300,x:[0,24],y:[0,200],yt:[0,50,100,150,200],xt:[0,4,8,12,16,20,24],xl:'our layer (paper = ours − 1)',yl:'dimensions removed',xname:'layer',series:ser,bands,vfmt:v=>v.toFixed(0)});
   cap.innerHTML = dimsMode==='ours'
     ? '<b>Dimensions removed before val R² falls below 0.3</b> (our ridge protocol, budget 80 probes; points at 160 or 80 never dropped). Layers 1–7 are highly redundant. Redundancy drops sharply between our layers 7 and 8, the block just before the paper\'s emergence layer.'
     : '<b>Paper protocol</b> (Adam probes, 80/20 split, X ← X − XQQᵀ). Dimensions = 2 × probes for direction and 1 × probes for speed and acceleration. The C.11 rule stops at direction R² &lt; 0.1 or error &gt; 80°, and speed or acceleration R² &lt; 0.05. The Fig. 22 caption rule stops at direction R² &lt; 0.3 and speed R² &lt; 0.1. The paper reports about 44 direction probes (88 dims) and 28 speed probes at its layer 8.';
@@ -634,32 +641,31 @@ function drawDims(){
 const FIG24={N:[1,2,3,5,10,15,20],target:[77,66,61,51,24,14,11.9],truth:[6,13,17,26,59,69,71]};
 function drawSteer(){
   const host=document.getElementById('p-steer'); host.innerHTML='';
-  legend(document.getElementById('lg-steer'),[{name:'our protocol, strict read-out',color:css('--ink2'),w:2.6},{name:'our protocol, paper-style read-out',color:css('--ink2'),dash:'5 4',w:1.6},
-    {name:'paper protocol, 256 px',color:css('--paper'),w:1.6,dot:false},{name:'paper protocol, 224 px',color:css('--paper'),dash:'2 3',w:1.6},{name:'paper Fig. 24 (approx.)',color:css('--paper'),dot:true,hollow:true},{name:'random edit, same norm',color:css('--neutral')}]);
+  legend(document.getElementById('lg-steer'),[{name:'our protocol, strict read-out',color:css('--ink2'),w:2.6,multi:true},{name:'our protocol, paper-style read-out',color:css('--ink2'),dash:'5 4',w:1.6,multi:true},
+    {name:'paper protocol, 256 px (mean of 3 splits)',color:css('--paper'),w:1.6},{name:'paper protocol, 224 px',color:css('--paper'),dash:'2 3',w:1.6},{name:'paper Fig. 24 (approx.)',color:css('--paper'),dot:true,hollow:true},{name:'random edit, same norm',color:css('--neutral'),w:1.6}]);
   const S=D.steer_pooled;
   ['direction','speed','acceleration'].forEach(n=>{
     const c=panel(host,n), s=S[n], col=css(VAR[n]);
-    const ser=[{name:'ours strict',color:col,w:2.6,markers:true,r:2.6,pts:S.n_list.map((N,i)=>[N,s.strict[i]])},
-      {name:'ours paper read-out',color:col,dash:'5 4',w:1.6,pts:S.n_list.map((N,i)=>[N,s.paper[i]])},
-      {name:'random edit',color:css('--neutral'),w:1.6,pts:S.n_list.map((N,i)=>[N,s.random[i]])}];
+    const ser=[{name:'our protocol, strict read-out',color:col,w:2.6,markers:true,r:2.6,pts:S.n_list.map((N,i)=>[N,s.strict[i]])},
+      {name:'our protocol, paper-style read-out',color:col,dash:'5 4',w:1.6,pts:S.n_list.map((N,i)=>[N,s.paper[i]])},
+      {name:'random edit, same norm',color:css('--neutral'),w:1.6,pts:S.n_list.map((N,i)=>[N,s.random[i]])}];
     if(n==='direction'){
-      const P=D.paper.vjepa2.direction.steer, P2=D.paper.vjepa2_224.direction.steer;
-      ser.push({name:'paper protocol 256',color:css('--paper'),w:1.6,markers:true,r:2.4,pts:P.steer.map(x=>[x.N,x.to_target])});
-      ser.push({name:'paper protocol 224',color:css('--paper'),dash:'2 3',w:1.6,pts:P2.steer.map(x=>[x.N,x.to_target])});
-      ser.push({name:'paper Fig. 24',color:css('--paper'),markersOnly:true,hollow:true,r:4,pts:FIG24.N.map((N,i)=>[N,FIG24.target[i]])});
+      const P=D.paper.vjepa2.direction.steer.block_output, P2=D.paper.vjepa2_224.direction.steer.block_output;
+      ser.push({name:'paper protocol, 256 px',color:css('--paper'),w:1.6,pts:P.N.map((N,i)=>[N,P.to_target[i]])});
+      ser.push({name:'paper protocol, 224 px',color:css('--paper'),dash:'2 3',w:1.6,pts:P2.N.map((N,i)=>[N,P2.to_target[i]])});
+      ser.push({name:'paper Fig. 24 (approx.)',color:css('--paper'),markersOnly:true,hollow:true,r:4,pts:FIG24.N.map((N,i)=>[N,FIG24.target[i]])});
     }
     const ymax=n==='direction'?100:(n==='speed'?1.5:4);
     lineChart(c,{x:[1,100],xlog:true,y:[0,ymax],yt:n==='direction'?[0,25,50,75,100]:(n==='speed'?[0,.5,1,1.5]:[0,1,2,3,4]),xt:[1,2,5,10,20,50,100],xl:'probes in steering subspace (N)',
       yl:n==='direction'?'error to target (°)':(n==='speed'?'MAE to target (m/s)':'MAE to target (m/s²)'),xname:'N =',series:ser,vfmt:v=>n==='direction'?v.toFixed(1)+'°':v.toFixed(3)});
   });
-  const P=D.paper.vjepa2.direction.steer, P2=D.paper.vjepa2_224.direction.steer;
-  const idx=[1,2,3,5,10,15,20];
   const row=(nm,arr,base)=>`<tr><td>${nm}</td>${arr.map(v=>`<td class="num">${v==null?'–':v.toFixed(1)}</td>`).join('')}<td class="num">${base==null?'–':base.toFixed(1)}</td></tr>`;
+  const rowsFor=(lab,P)=>row(lab+': error to target',P.to_target,P.base_to_target)+row(lab+': error to true label',P.to_truth,P.base_to_truth);
+  const S2=D.paper.vjepa2.direction.steer, S3=D.paper.vjepa2_224.direction.steer;
   document.getElementById('t-steer').innerHTML =
-    row('Paper protocol, 256 px: error to target', P.steer.map(x=>x.to_target), P.baseline.to_target) +
-    row('Paper protocol, 256 px: error to true label', P.steer.map(x=>x.to_truth), P.baseline.to_truth) +
-    row('Paper protocol, 224 px: error to target', P2.steer.map(x=>x.to_target), P2.baseline.to_target) +
-    row('Paper protocol, 224 px: error to true label', P2.steer.map(x=>x.to_truth), P2.baseline.to_truth) +
+    rowsFor('Paper protocol, 256 px, layer 8 = block 8 output',S2.block_output) +
+    rowsFor('Paper protocol, 256 px, layer 8 = hidden state 8',S2.embedding_is_0) +
+    rowsFor('Paper protocol, 224 px, layer 8 = block 8 output',S3.block_output) +
     row('Paper Fig. 24: error to target (approx.)', FIG24.target, 82.9) +
     row('Paper Fig. 24: error to true label (approx.)', FIG24.truth, 4.9);
 }
@@ -667,22 +673,27 @@ function drawProp(){
   const host=document.getElementById('p-prop'); host.innerHTML='';
   const Ns=D.steer_prop.direction.n_list;
   const shade=i=>0.35+0.65*i/(Ns.length-1);
-  legend(document.getElementById('lg-prop'),Ns.map((N,i)=>({name:'N = '+N,color:css('--ink2'),w:1+1.6*shade(i)})).concat([{name:'random edit (N = 20 size)',color:css('--neutral')},{name:'unsteered probe error',color:css('--paper'),dash:'5 4'}]));
+  legend(document.getElementById('lg-prop'),Ns.map((N,i)=>({name:'N = '+N,color:css('--ink2'),w:1+1.6*shade(i),multi:true})).concat([{name:'random edit, same norm as N = 20',color:css('--neutral'),w:1.6},{name:'unsteered probe error (floor)',color:css('--paper'),dash:'5 4',w:1.4}]));
   ['direction','speed','acceleration'].forEach(n=>{
     const c=panel(host,n), s=D.steer_prop[n], col=css(VAR[n]);
-    const ser=Ns.map((N,i)=>({name:'N='+N,color:col,w:1+1.6*shade(i),pts:s.layers.map((l,j)=>[l,s.steer[N][j]]),markers:N===20,r:2.2}));
-    ser.push({name:'random',color:css('--neutral'),pts:s.layers.map((l,j)=>[l,s.random[j]])});
-    ser.push({name:'unsteered',color:css('--paper'),dash:'5 4',w:1.4,pts:s.layers.map((l,j)=>[l,s.clean_truth[j]])});
+    const ser=Ns.map((N,i)=>({name:'N = '+N,color:col,w:1+1.6*shade(i),pts:s.layers.map((l,j)=>[l,s.steer[N][j]]),markers:N===20,r:2.2}));
+    ser.push({name:'random edit',color:css('--neutral'),w:1.6,pts:s.layers.map((l,j)=>[l,s.random[j]])});
+    ser.push({name:'unsteered probe error',color:css('--paper'),dash:'5 4',w:1.4,pts:s.layers.map((l,j)=>[l,s.clean_truth[j]])});
     const ymax=n==='direction'?100:(n==='speed'?1.5:4);
     lineChart(c,{x:[12,24],y:[0,ymax],yt:n==='direction'?[0,25,50,75,100]:(n==='speed'?[0,.5,1,1.5]:[0,1,2,3,4]),xt:[12,14,16,18,20,22,24],xl:'read-out layer',
       yl:n==='direction'?'error to target (°)':(n==='speed'?'MAE (m/s)':'MAE (m/s²)'),xname:'layer',series:ser,vfmt:v=>n==='direction'?v.toFixed(1)+'°':v.toFixed(3)});
   });
 }
 function drawPersist(){
-  legend(document.getElementById('lg-persist'),['direction','speed','acceleration'].map(n=>({name:n,color:css(VAR[n])})));
-  lineChart(document.getElementById('c-persist'),{w:760,h:280,x:[12,24],y:[0,1],yt:[0,.25,.5,.75,1],xt:[12,14,16,18,20,22,24],xl:'layer',yl:'fraction of Δ retained',xname:'layer',
-    series:['direction','speed','acceleration'].map(n=>({name:n,color:css(VAR[n]),markers:true,r:2.6,pts:D.persist[n].layers.map((l,j)=>[l,D.persist[n].retained_frac[j]])})),
-    hlines:[{v:1,color:css('--paper'),dash:'5 4'}]});
+  const host=document.getElementById('p-persist'); host.innerHTML='';
+  legend(document.getElementById('lg-persist'),[{name:'steering edit Δ (N = 20)',color:css('--ink2'),w:2.6,multi:true},{name:'real clip-to-clip difference',color:css('--paper'),w:1.6,dash:'5 4'},{name:'random Δ, same norm',color:css('--neutral'),w:1.6}]);
+  ['direction','speed','acceleration'].forEach(n=>{
+    const c=panel(host,n), P=D.persist[n];
+    lineChart(c,{x:[12,24],y:[0,1],yt:[0,.25,.5,.75,1],xt:[12,16,20,24],xl:'layer',yl:'fraction retained',xname:'layer',
+      series:[{name:'steering edit Δ',color:css(VAR[n]),w:2.6,markers:true,r:2.4,pts:P.layers.map((l,j)=>[l,P.retained_frac[j]])},
+        {name:'clip-to-clip difference',color:css('--paper'),dash:'5 4',w:1.6,pts:P.layers.map((l,j)=>[l,P.retained_frac_natural[j]])},
+        {name:'random Δ',color:css('--neutral'),w:1.6,pts:P.layers.map((l,j)=>[l,P.retained_frac_random[j]])}]});
+  });
 }
 
 /* ---------- wiring ---------- */

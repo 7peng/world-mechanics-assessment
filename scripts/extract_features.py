@@ -3,7 +3,7 @@
 Saves outputs/features/<model>/<dataset>.npz with
   mean  [N, 25, 1024]    mean over all space-time tokens (2048 at 256px, 1568 at 224px)
   tmean [N, 25, 8, 1024] spatial mean per temporal token (tubelet)
-both float16, plus clip ids.
+mean float32, tmean float16, plus clip ids.
 """
 import argparse
 import sys
@@ -26,7 +26,7 @@ args = ap.parse_args()
 tag = ("vjepa2_random" if args.random_init else "vjepa2") + ("" if args.size == 256 else f"_{args.size}")
 out_dir = OUT / "features" / tag
 out_dir.mkdir(parents=True, exist_ok=True)
-model = load_encoder(random_init=args.random_init)
+model = load_encoder(random_init=args.random_init, size=args.size)
 
 for name in DATASETS:
     df = load_manifest(name)
@@ -40,7 +40,7 @@ for name in DATASETS:
                                                 antialias=True, align_corners=False).view(B, T, C, args.size, args.size)
         hs = torch.stack(hidden_states(model, x.cuda()), 1)  # [B, 25, N_tokens, D]
         B, L, N, D = hs.shape
-        means.append(hs.mean(2).half().cpu())
+        means.append(hs.mean(2).float().cpu())  # fp32: fp16 rounding is ~2-4% of cross-clip variance for random init
         tmeans.append(hs.view(B, L, T_TOK, N // T_TOK, D).mean(3).half().cpu())
     np.savez(out_dir / f"{name}.npz", ids=df.id.values,
              mean=torch.cat(means).numpy(), tmean=torch.cat(tmeans).numpy())

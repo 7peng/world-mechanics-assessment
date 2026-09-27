@@ -24,7 +24,7 @@ from tqdm import tqdm
 from src.data import OUT, load_manifest, read_video
 from src.features import load_features, split_idx
 from src.model import load_encoder, preprocess, run_from, run_to
-from src.probes import angle_deg, circ_err, fit_ridge, targets
+from src.probes import angle_deg, circ_err, circ_mean, fit_ridge, targets
 from src.steer import clamp_coords, target_vec
 
 ap = argparse.ArgumentParser()
@@ -56,7 +56,8 @@ if name != "direction":
 # steering deltas in raw feature space, per condition: (kind, N, target) -> function of pooled x
 conds = [("clean", 0, None)] + [("steer", N, t) for N in N_LIST for t in TARGETS] + \
         [("random", N_RANDOM, t) for t in TARGETS]
-coords = {(N, t): clamp_coords(inlp, N, target_vec(name, t)) for N in N_LIST for t in TARGETS}
+coords = {(N, t): clamp_coords(inlp, N, target_vec(name, t)) for N in sorted(set(N_LIST) | {N_RANDOM})
+          for t in TARGETS}
 Rb, _ = np.linalg.qr(rng.standard_normal((F.shape[2], N_RANDOM * (2 if name == "direction" else 1))))
 
 
@@ -67,9 +68,10 @@ def deltas(x: np.ndarray, kind, N, t) -> np.ndarray:
     z = inlp.z(x)
     V, c = coords[(N if kind == "steer" else N_RANDOM, t)]
     dz = -(z @ V) @ V.T + c[None] @ V.T
-    if kind == "random":
-        g = rng.standard_normal((len(z), Rb.shape[1])) @ Rb.T
-        dz = g * (np.linalg.norm(dz, axis=1) / np.linalg.norm(g, axis=1))[:, None]
+    if kind == "random":  # same raw-space norm as the steering edit, random subspace of equal dim
+        g = (rng.standard_normal((len(z), Rb.shape[1])) @ Rb.T) * inlp.sd
+        d = dz * inlp.sd
+        return g * (np.linalg.norm(d, axis=1) / np.linalg.norm(g, axis=1))[:, None]
     return dz * inlp.sd
 
 
@@ -93,8 +95,9 @@ err = (lambda a, b: circ_err(a, b)) if name == "direction" else (lambda a, b: np
 out = {"layer": L, "layers": layers, "targets": TARGETS.tolist(), "n_list": N_LIST, "n_random": N_RANDOM,
        "conditions": []}
 for ci, (kind, N, t) in enumerate(conds):
-    row = {"kind": kind, "N": N, "target": t, "to_target": [], "to_truth": [], "decoded_mean": [],
-           "delta_norm_final": []}
+    row = {"kind": kind, "N": N, "target": t, "to_target": [], "to_truth": [], "decoded_mean": []}
+    if name == "direction":
+        row["decoded_R"], row["within_22.5"] = [], []
     if thetap:
         row["theta_mae"] = []
     for li, l in enumerate(layers):
@@ -103,8 +106,12 @@ for ci, (kind, N, t) in enumerate(conds):
         row["to_truth"].append(float(err(d, truth).mean()))
         if t is not None:
             row["to_target"].append(float(err(d, t).mean()))
-            row["decoded_mean"].append(float(t + ((d - t + 180) % 360 - 180).mean()) if name == "direction"
-                                       else float(d.mean()))
+            if name == "direction":  # circular mean + resultant length, and fraction within ±22.5°
+                cm, R = circ_mean(d)
+                row["decoded_mean"].append(cm); row["decoded_R"].append(R)
+                row["within_22.5"].append(float((circ_err(d, t) <= 22.5).mean()))
+            else:
+                row["decoded_mean"].append(float(d.mean()))
         if thetap:
             row["theta_mae"].append(float(circ_err(angle_deg(thetap[l].predict(X)),
                                                    df.theta_degrees.values[test]).mean()))

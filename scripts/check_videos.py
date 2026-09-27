@@ -37,8 +37,10 @@ for name in DATASETS:
           f"frames w/ partial disk={(areas < 0.9 * full).mean():.3%} "
           f"clips w/ any partial frame={(areas < 0.9 * full).any(1).mean():.2%} "
           f"clips w/ empty frame={(areas == 0).any(1).mean():.2%}")
-    disp = np.linalg.norm(cents[:, -1] - cents[:, 0], axis=1)
-    print(f"   pixel displacement: min={disp.min():.1f} median={np.median(disp):.1f} max={disp.max():.1f}")
+    ok = (areas >= 0.9 * full).all(1)  # disk fully visible in every frame
+    disp = np.linalg.norm(cents[ok, -1] - cents[ok, 0], axis=1)
+    print(f"   pixel displacement (fully visible clips, n={ok.sum()}): "
+          f"min={disp.min():.1f} median={np.median(disp):.1f} max={disp.max():.1f}")
 
     # montage: 6 clips spanning the label range, frames 0,5,10,15
     key = {"direction": "theta_degrees", "speed": "speed_mps", "acceleration": "acceleration_mps2"}[name]

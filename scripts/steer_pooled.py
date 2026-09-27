@@ -19,7 +19,7 @@ import numpy as np
 from src.data import DATASETS, OUT, load_manifest
 from src.features import load_features, split_idx
 from src.plotting import COLORS, INK2, NEUTRAL, plt
-from src.probes import angle_deg, circ_err, fit_ridge, targets
+from src.probes import angle_deg, circ_err, circ_mean, fit_ridge, targets
 from src.steer import clamp_coords, steer, target_vec
 
 L = json.loads((OUT / "results" / "inlp.json").read_text())["layer"]
@@ -63,11 +63,13 @@ for name in DATASETS:
         r["clean"]["theta_mae"] = float(circ_err(decode("direction", theta_probe, Xte), th_true).mean())
     to_raw = lambda z: z * inlp.sd + inlp.mu
     for N in N_LIST:
-        row, rrow = {"to_target": {}, "to_truth": {}, "decoded": {}}, {"to_target": {}}
+        row, rrow = {"to_target": {}, "to_truth": {}, "decoded": {}, "decoded_R": {}, "within_22.5": {}}, {"to_target": {}}
         per_t = {k: [] for k in evals}
         per_truth = {k: [] for k in evals}
         rnd = {k: [] for k in evals}
         dec_mean = {k: [] for k in evals}
+        dec_R = {k: [] for k in evals}
+        within = {k: [] for k in evals}
         th_err = []
         for tv in TARGETS[name]:
             V, c = clamp_coords(inlp, N, target_vec(name, tv))
@@ -75,22 +77,29 @@ for name in DATASETS:
             # matched-norm random perturbation in a random subspace of equal dimension
             Rb, _ = np.linalg.qr(rng.standard_normal((zte.shape[1], V.shape[1])))
             g = rng.standard_normal((len(zte), V.shape[1])) @ Rb.T
-            g *= (np.linalg.norm(zs - zte, axis=1) / np.linalg.norm(g, axis=1))[:, None]
+            # match the norm of the edit in raw feature units (what the probes / network see)
+            g_raw, d_raw = g * inlp.sd, (zs - zte) * inlp.sd
+            g *= (np.linalg.norm(d_raw, axis=1) / np.linalg.norm(g_raw, axis=1))[:, None]
             Xs, Xr = to_raw(zs), to_raw(zte + g)
             for k, p in evals.items():
                 d = decode(name, p, Xs)
                 per_t[k].append(err(name, d, tv).mean())
                 per_truth[k].append(err(name, d, truth).mean())
                 rnd[k].append(err(name, decode(name, p, Xr), tv).mean())
-                # direction: mean signed error wrapped to (-180, 180], added back to the target
-                dec_mean[k].append(float(np.mean(d)) if name != "direction" else
-                                   float(tv + ((d - tv + 180) % 360 - 180).mean()))
+                if name == "direction":  # circular mean + resultant length (R ~ 0: decoded angles are spread out)
+                    cm, R = circ_mean(d)
+                    dec_mean[k].append(cm); dec_R[k].append(R)
+                    within[k].append(float((circ_err(d, tv) <= 22.5).mean()))
+                else:
+                    dec_mean[k].append(float(np.mean(d)))
             if theta_probe is not None:
                 th_err.append(circ_err(decode("direction", theta_probe, Xs), th_true).mean())
         for k in evals:
             row["to_target"][k] = float(np.mean(per_t[k]))
             row["to_truth"][k] = float(np.mean(per_truth[k]))
             row["decoded"][k] = dec_mean[k]
+            row["decoded_R"][k] = dec_R[k]
+            row["within_22.5"][k] = within[k]
             rrow["to_target"][k] = float(np.mean(rnd[k]))
         if th_err:
             row["theta_mae"] = float(np.mean(th_err))
@@ -120,9 +129,17 @@ for j, name in enumerate(DATASETS):
     tg = r["targets"]
     for N, shade in ((1, 0.35), (5, 0.6), (20, 1.0)):
         i = N_LIST.index(N)
-        ax.plot(tg, r["steer"][i]["decoded"]["strict"], "-o", color=c, alpha=shade, label=f"N={N}")
-    ax.plot(tg, tg, color=INK2, lw=1, ls="--", label="ideal")
-    ax.set_xlabel("target"); ax.set_ylabel("mean decoded value (strict probe)")
+        if name == "direction":  # fraction of clips decoded within ±22.5° of the target
+            ax.plot(tg, r["steer"][i]["within_22.5"]["strict"], "-o", color=c, alpha=shade, label=f"N={N}")
+        else:
+            ax.plot(tg, r["steer"][i]["decoded"]["strict"], "-o", color=c, alpha=shade, label=f"N={N}")
+    if name == "direction":
+        ax.axhline(45 / 360, color=INK2, lw=1, ls="--", label="chance")
+        ax.set_ylim(0, 1.02); ax.set_ylabel("fraction within ±22.5° of target")
+    else:
+        ax.plot(tg, tg, color=INK2, lw=1, ls="--", label="ideal")
+        ax.set_ylabel("mean decoded value (strict probe)")
+    ax.set_xlabel("target")
     ax.legend(fontsize=8)
 fig.suptitle("Multi-probe subspace steering on pooled activations, held-out test clips", x=0.01, ha="left")
 fig.tight_layout()

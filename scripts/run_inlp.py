@@ -5,7 +5,8 @@ where direction R² jumps) is degenerate here: all variables reach R² > 0.85 at
 error, though, keeps improving with depth (12° -> 3°), so we take the earliest layer where direction
 val circular MAE is within 1.25x of its best. At that layer we run
 INLP plus two controls (random directions, top-PC directions) for each variable. We also sweep
-all layers with INLP only, recording how many probes it takes before R² drops below 0.3 / 0.1.
+all layers with INLP only, recording how many probes it takes before R² drops below 0.3 / 0.1. The sweep uses val R²
+at a val-chosen alpha, so those counts are slightly optimistic; main-layer curves are reported on test.
 """
 import argparse
 import json

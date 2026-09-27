@@ -1,7 +1,7 @@
 """Frozen V-JEPA 2 ViT-L/16 (256px) encoder and preprocessing.
 
 Preprocessing: clips are already 256x256x16, so we skip the HF processor's default
-resize-to-292 + center-crop (which would crop ~7% off each border and can cut the disk)
+resize-to-292 + center-crop (which would crop ~6% off each border and can cut the disk)
 and only rescale to [0,1] and apply ImageNet mean/std normalization.
 
 Layer indexing: hidden_states[0] is the patch-embedding output ("layer 0"),
@@ -19,13 +19,19 @@ MEAN = torch.tensor([0.485, 0.456, 0.406]).view(1, 1, 3, 1, 1)
 STD = torch.tensor([0.229, 0.224, 0.225]).view(1, 1, 3, 1, 1)
 
 
-def load_encoder(device="cuda", random_init=False, seed=0) -> VJEPA2Model:
+def load_encoder(device="cuda", random_init=False, seed=0, size=256) -> VJEPA2Model:
+    """size != 256: HF VJEPA2 derives the RoPE token grid from config.crop_size (16x16 at 256px),
+    not from the input, so a 224px input (14x14 patches) would get scrambled positions. We set the
+    grid on every encoder attention module to match the actual input."""
     if random_init:
         torch.manual_seed(seed)
         model = VJEPA2Model(VJEPA2Config.from_pretrained(MODEL_ID))
     else:
         model = VJEPA2Model.from_pretrained(MODEL_ID, dtype=torch.float32)
     model = model.to(device).eval()
+    if size != 256:
+        for blk in model.encoder.layer:
+            blk.attention.grid_size = size // model.config.patch_size
     for p in model.parameters():
         p.requires_grad_(False)
     return model

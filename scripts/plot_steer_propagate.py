@@ -35,12 +35,18 @@ for j, name in enumerate(DATASETS):
         ax.legend(fontsize=8)
     # dose-response at final layer
     ax = axes[1, j]
+    key = "within_22.5" if name == "direction" else "decoded_mean"
     for N, a in zip(r["n_list"], shades):
         rs = sorted([x for x in conds if x["kind"] == "steer" and x["N"] == N], key=lambda x: x["target"])
-        ax.plot([x["target"] for x in rs], [x["decoded_mean"][-1] for x in rs], "-o", ms=3, color=c, alpha=a, label=f"N={N}")
+        ax.plot([x["target"] for x in rs], [x[key][-1] for x in rs], "-o", ms=3, color=c, alpha=a, label=f"N={N}")
     tg = r["targets"]
-    ax.plot(tg, tg, color=INK2, ls="--", lw=1, label="ideal")
-    ax.set_xlabel("target"); ax.set_ylabel("mean decoded value at layer 24")
+    if name == "direction":
+        ax.axhline(45 / 360, color=INK2, ls="--", lw=1, label="chance")
+        ax.set_ylim(0, 1.02); ax.set_ylabel("fraction within ±22.5° of target, layer 24")
+    else:
+        ax.plot(tg, tg, color=INK2, ls="--", lw=1, label="ideal")
+        ax.set_ylabel("mean decoded value at layer 24")
+    ax.set_xlabel("target")
     if name != "direction":
         rs = [x for x in conds if x["kind"] == "steer" and x["N"] == 20]
         th = np.mean([x["theta_mae"][-1] for x in rs])

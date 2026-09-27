@@ -1,8 +1,8 @@
 """Joseph et al. (arXiv 2602.07050) protocol, followed as literally as the paper allows.
 
 Stated by the paper, and implemented here as written:
-  App. B   linear probe f(h)=Wh+b on spatiotemporally mean-pooled residual stream, layers 0..n-1
-           (= output of block 0..23 = our hidden_states[1..24]); gradient-trained;
+  App. B   linear probe f(h)=Wh+b on spatiotemporally pooled activations "from each layer
+           ℓ ∈ {0,...,n-1}"; residual stream (§3.2); an lr/wd sweep (implies gradient training);
            sweep lr {1e-4,3e-4,1e-3,3e-3,5e-3} x weight decay {0.01,0.1,0.4,0.8};
            "selecting the best model based on validation performance"; 5-fold grouped CV;
            mean ± std across folds; y-axis "Validation R²" (Fig. 2).
@@ -19,6 +19,12 @@ Stated by the paper, and implemented here as written:
   as the uniform average over outputs (sklearn default).
 
 NOT stated by the paper; our choices (flagged in outputs):
+  - layer indexing: paper layer ℓ = output of block ℓ = our hidden_states[ℓ+1] (primary). The other
+    reading (ℓ = hidden_states[ℓ], 0 = patch embedding) is equally possible; steering is run at both.
+  - probe count K = number of probes that passed before the first one below threshold
+    (Fig. 22's value of ~1 at layer 0 may instead count the failing probe: K+1)
+  - each layer gets its own minibatch order / init (otherwise one bad draw hits all layers at once);
+    orthogonal sequences are run with several seeds and the median K is reported
   - optimizer for App. B sweep: AdamW (decoupled decay; values up to 0.8 imply it); C.11 says "Adam
     with weight decay" -> torch Adam (L2 penalty)
   - epochs for App. B probes: same as C.11 (100 direction, 50 speed/acceleration); batch size 32;
@@ -38,73 +44,16 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import numpy as np
 import torch
-from sklearn.model_selection import GroupKFold
+from sklearn.model_selection import GroupKFold, GroupShuffleSplit
 
 from src.data import DATASETS, OUT, load_manifest
 from src.features import load_features
+from src.gd_probe import BS, DEV, predict, r2_t, to_dev, train_linear
 from src.probes import angle_deg, circ_err, targets
 
-DEV = "cuda"
 LRS = [1e-4, 3e-4, 1e-3, 3e-3, 5e-3]
 WDS = [0.01, 0.1, 0.4, 0.8]
 EPOCHS = {"direction": 100, "speed": 50, "acceleration": 50}
-BS = 32
-
-
-# ---------------------------------------------------------------- batched gradient-trained probes
-def train_linear(X, Y, lrs, wds, epochs, decoupled, seed=0, bs=BS):
-    """Train L x C independent linear probes y = xW + b with (Adam|AdamW), minibatch MSE.
-    X: [L, N, d] (one feature matrix per layer), Y: [N, k]; lrs, wds: [C].
-    Returns W [L, C, d, k], b [L, C, k]."""
-    g = torch.Generator(device=DEV).manual_seed(seed)
-    L, N, d = X.shape
-    k = Y.shape[1]
-    C = len(lrs)
-    lr = torch.tensor(lrs, device=DEV, dtype=torch.float32).view(1, C, 1, 1)
-    wd = torch.tensor(wds, device=DEV, dtype=torch.float32).view(1, C, 1, 1)
-    bound = 1 / np.sqrt(d)  # nn.Linear default init
-    W = (torch.rand(L, C, d, k, device=DEV, generator=g) * 2 - 1) * bound
-    b = (torch.rand(L, C, 1, k, device=DEV, generator=g) * 2 - 1) * bound
-    params = [W, b]
-    m = [torch.zeros_like(p) for p in params]
-    v = [torch.zeros_like(p) for p in params]
-    b1, b2, eps, t = 0.9, 0.999, 1e-8, 0
-    for _ in range(epochs):
-        perm = torch.randperm(N, device=DEV, generator=g)
-        for s in range(0, N, bs):
-            idx = perm[s:s + bs]
-            xb, yb = X[:, idx], Y[idx]                                   # [L,B,d], [B,k]
-            pred = torch.einsum("lbd,lcdk->lcbk", xb, W) + b              # [L,C,B,k]
-            err = pred - yb                                              # dMSE/dpred = 2 err / (B k)
-            scale = 2.0 / (len(idx) * k)
-            gW = torch.einsum("lbd,lcbk->lcdk", xb, err) * scale
-            gb = err.sum(2, keepdim=True) * scale
-            t += 1
-            for i, (p, gr) in enumerate(zip(params, (gW, gb))):
-                if decoupled:
-                    p.mul_(1 - lr * wd)
-                else:
-                    gr = gr + wd * p
-                m[i].mul_(b1).add_(gr, alpha=1 - b1)
-                v[i].mul_(b2).addcmul_(gr, gr, value=1 - b2)
-                p.sub_(lr * (m[i] / (1 - b1 ** t)) / ((v[i] / (1 - b2 ** t)).sqrt() + eps))
-    return W, b[:, :, 0]
-
-
-def predict(X, W, b):
-    """X [L, N, d] -> [L, C, N, k]"""
-    return torch.einsum("lnd,lcdk->lcnk", X, W) + b[:, :, None]
-
-
-def r2_t(y, yhat):
-    """y [N,k], yhat [..., N, k] -> R² averaged over outputs, shape [...]"""
-    ss_res = ((yhat - y) ** 2).sum(-2)
-    ss_tot = ((y - y.mean(0)) ** 2).sum(0)
-    return (1 - ss_res / ss_tot).mean(-1)
-
-
-def to_dev(a):
-    return torch.as_tensor(np.ascontiguousarray(a), dtype=torch.float32, device=DEV)
 
 
 # ---------------------------------------------------------------- App. B: layer-wise probes
@@ -114,7 +63,6 @@ def layerwise(name, F, y, groups):
     cfg_lr = [lr for lr in LRS for _ in WDS]
     cfg_wd = [wd for _ in LRS for wd in WDS]
     exact, nested, chosen = [], [], []
-    rng = np.random.default_rng(0)
     for fold, (tr, va) in enumerate(GroupKFold(5).split(F, groups=groups)):
         W, b = train_linear(X[:, tr], Y[tr], cfg_lr, cfg_wd, EPOCHS[name], decoupled=True, seed=fold)
         sc = r2_t(Y[va], predict(X[:, va], W, b))       # [24, 20]
@@ -122,8 +70,8 @@ def layerwise(name, F, y, groups):
         exact.append(sc.max(1).values.cpu().numpy())
         chosen.append(best.cpu().numpy())
         # nested: choose config on an inner 80/20 split of the training folds, report on the fold
-        itr = rng.permutation(tr)
-        iva, itr = itr[: len(itr) // 5], itr[len(itr) // 5:]
+        gi_tr, gi_va = next(GroupShuffleSplit(1, test_size=0.2, random_state=fold).split(tr, groups=groups[tr]))
+        itr, iva = tr[gi_tr], tr[gi_va]
         W2, b2 = train_linear(X[:, itr], Y[itr], cfg_lr, cfg_wd, EPOCHS[name], decoupled=True, seed=100 + fold)
         bi = r2_t(Y[iva], predict(X[:, iva], W2, b2)).argmax(1)
         sc2 = r2_t(Y[va], predict(X[:, va], W2, b2))
@@ -184,12 +132,12 @@ def steer_eval(F9, y, theta, n_list, target=90.0, seed=0, n_probes=25):
     p = rng.permutation(tr)
     itr, iva = p[: int(0.8 * len(p))], p[int(0.8 * len(p)):]
     Xtr = F9[None]  # [1, N, d]
-    hist, probes = orthogonal_sequence("direction", Xtr, y, itr, iva, n_probes, seed=1000)
+    hist, probes = orthogonal_sequence("direction", Xtr, y, itr, iva, n_probes, seed=1000 + 7919 * seed)
     r2s = [h["r2"][0] for h in hist]
-    K = next((i for i, r in enumerate(r2s) if r < 0.1), n_probes)  # "25 probes until R² < 0.1"
+    K = next((i for i, r in enumerate(r2s) if r < 0.1), None)  # None: R² never fell below 0.1 in n_probes
     # held-out evaluation probe: trained on (clean) test activations only
     We, be = train_linear(to_dev(F9[te])[None], to_dev(y[te]), [1e-3], [1e-4], EPOCHS["direction"],
-                          decoupled=False, seed=2000)
+                          decoupled=False, seed=2000 + seed)
     We, be = We[0, 0].cpu().numpy(), be[0, 0].cpu().numpy()
     fit_r2 = float(probe_metrics("direction", y[te], (F9[te] @ We + be)[None])["r2"][0])
     ev = lambda X: angle_deg(X @ We + be)
@@ -197,7 +145,8 @@ def steer_eval(F9, y, theta, n_list, target=90.0, seed=0, n_probes=25):
     t = np.array([np.sin(np.radians(target)), np.cos(np.radians(target))])
     base_to_truth = float(circ_err(ev(Xte), theta[te]).mean())
     base_to_target = float(circ_err(ev(Xte), target).mean())
-    out = {"n_probes_trained": n_probes, "K_until_r2_0.1": K, "train_seq_val_r2": r2s,
+    out = {"n_probes_trained": n_probes, "K_until_r2_0.1": K, "min_train_seq_val_r2": float(min(r2s)),
+           "train_seq_val_r2": r2s,
            "eval_probe_fit_r2_on_test": fit_r2, "n_train": len(tr), "n_test": len(te),
            "baseline": {"to_truth": base_to_truth, "to_target": base_to_target}, "steer": []}
     for N in n_list:
@@ -230,8 +179,10 @@ if __name__ == "__main__":
     ap.add_argument("--features", default="vjepa2", help="vjepa2 (256px) or vjepa2_224")
     ap.add_argument("--parts", default="layerwise,orth,steer")
     ap.add_argument("--orth-iter", type=int, default=100)
+    ap.add_argument("--seeds", default="0,1,2", help="seeds for orthogonal sequences and steering splits")
     args = ap.parse_args()
     parts = args.parts.split(",")
+    seeds = [int(x) for x in args.seeds.split(",")]
     res = {"features": args.features, "layer_index": "paper (0 = output of block 0)"}
     for name in DATASETS:
         df = load_manifest(name)
@@ -244,25 +195,42 @@ if __name__ == "__main__":
             print(name, "layerwise exact R²:", " ".join(f"{v:.2f}" for v in r["layerwise"]["exact_mean"]), flush=True)
             print(name, "layerwise nested R²:", " ".join(f"{v:.2f}" for v in r["layerwise"]["nested_mean"]), flush=True)
         if "orth" in parts:
-            rng = np.random.default_rng(0)
-            perm = rng.permutation(len(F))
-            tr, va = perm[: int(0.8 * len(F))], perm[int(0.8 * len(F)):]
-            hist, _ = orthogonal_sequence(name, F[:, 1:].transpose(1, 0, 2), y, tr, va, args.orth_iter)
-            o = r["orth"] = {"hist": hist}
-            if name == "direction":
-                o["n_stop_C11"] = [min(a, b) if a is not None and b is not None else (a if b is None else b)
-                                   for a, b in zip(n_until(hist, "r2", 0.1), n_until(hist, "circ_mae", 80, below=False))]
-                o["n_stop_fig22"] = n_until(hist, "r2", 0.3)
-            else:
-                base = float(np.abs(y[va, 0] - y[tr, 0].mean()).mean())      # constant-mean predictor
-                a, b = n_until(hist, "r2", 0.05), n_until(hist, "mae", 0.9 * base, below=False)
-                o["n_stop_C11"] = [min(x for x in (p, q) if x is not None) if (p is not None or q is not None) else None
-                                   for p, q in zip(a, b)]
-                o["n_stop_fig22"] = n_until(hist, "r2", 0.1)
-            print(name, "orth probes until stop (C.11):", o["n_stop_C11"], flush=True)
-            print(name, "orth probes until stop (Fig.22):", o["n_stop_fig22"], flush=True)
+            o = r["orth"] = {"seeds": seeds, "hist": [], "n_stop_C11_runs": [], "n_stop_fig22_runs": []}
+            for sd in seeds:
+                rng = np.random.default_rng(sd)          # 80/20 split with a fixed seed (C.11)
+                perm = rng.permutation(len(F))
+                tr, va = perm[: int(0.8 * len(F))], perm[int(0.8 * len(F)):]
+                hist, _ = orthogonal_sequence(name, F[:, 1:].transpose(1, 0, 2), y, tr, va, args.orth_iter,
+                                              seed=100003 * sd)
+                if name == "direction":
+                    a, b = n_until(hist, "r2", 0.1), n_until(hist, "circ_mae", 80, below=False)
+                    fig22 = n_until(hist, "r2", 0.3)
+                else:
+                    base = float(np.abs(y[va, 0] - y[tr, 0].mean()).mean())      # constant-mean predictor
+                    a, b = n_until(hist, "r2", 0.05), n_until(hist, "mae", 0.9 * base, below=False)
+                    fig22 = n_until(hist, "r2", 0.1)
+                # stop at whichever criterion trips first; None if neither does within the budget
+                c11 = [min(v for v in (p, q) if v is not None) if (p is not None or q is not None) else None
+                       for p, q in zip(a, b)]
+                o["hist"].append(hist)
+                o["n_stop_C11_runs"].append(c11)
+                o["n_stop_fig22_runs"].append(fig22)
+            cap = args.orth_iter  # never reached -> counted at the budget for the median (flagged separately)
+            med = lambda runs: [float(np.median([cap if v is None else v for v in col])) for col in zip(*runs)]
+            o["n_stop_C11"], o["n_stop_fig22"] = med(o["n_stop_C11_runs"]), med(o["n_stop_fig22_runs"])
+            o["never_reached_any_seed"] = {"C11": [any(v is None for v in col) for col in zip(*o["n_stop_C11_runs"])],
+                                           "fig22": [any(v is None for v in col) for col in zip(*o["n_stop_fig22_runs"])]}
+            print(name, "orth probes until stop (C.11), per seed:", o["n_stop_C11_runs"], flush=True)
+            print(name, "orth probes until stop (Fig.22), per seed:", o["n_stop_fig22_runs"], flush=True)
         if "steer" in parts and name == "direction":
-            r["steer"] = steer_eval(F[:, 9], y, df.theta_degrees.values, [1, 2, 3, 5, 10, 15, 20])
-            print("steer:", json.dumps({k: v for k, v in r["steer"].items() if k != "train_seq_val_r2"}), flush=True)
+            # "layer 8": index 9 = output of block 8 (primary reading); index 8 = alternative reading
+            r["steer"] = {}
+            for key, li in (("block_output", 9), ("embedding_is_0", 8)):
+                runs = [steer_eval(F[:, li], y, df.theta_degrees.values, [1, 2, 3, 5, 10, 15, 20], seed=sd)
+                        for sd in seeds]
+                r["steer"][key] = {"feature_index": li, "runs": runs}
+                for sd, run in zip(seeds, runs):
+                    print(f"steer[{key}] seed {sd}: K={run['K_until_r2_0.1']} min R²={run['min_train_seq_val_r2']:.2f} "
+                          + " ".join(f"N{x['N']}:{x['to_target']:.1f}" for x in run["steer"]), flush=True)
     (OUT / "results").mkdir(exist_ok=True)
     (OUT / "results" / f"paper_protocol_{args.features}.json").write_text(json.dumps(res, indent=1))

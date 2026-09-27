@@ -17,15 +17,22 @@ from src.features import load_baseline, load_features, split_idx
 from src.plotting import COLORS, INK2, NEUTRAL, plt
 from src.probes import angle_deg, circ_err, fit_ridge, metrics, r2, targets
 
-rng = np.random.default_rng(0)
-BOOT = rng.integers(0, 320, size=(500, 320))  # all test sets have 320 clips
+N_BOOT = 500
+_boot_cache = {}
+
+
+def boot_idx(n):
+    """Fixed bootstrap resamples per test-set size (paired across layers and models)."""
+    if n not in _boot_cache:
+        _boot_cache[n] = np.random.default_rng(0).integers(0, n, size=(N_BOOT, n))
+    return _boot_cache[n]
 
 
 def evaluate(name, X, y, idx, log=False, **kw):
     p = fit_ridge(X[idx["train"]], y[idx["train"]], X[idx["val"]], y[idx["val"]], **kw)
     yt, yh = y[idx["test"]], p.predict(X[idx["test"]])
     m = metrics(name, yt, yh, log)
-    boots = [r2(yt[b], yh[b]) for b in BOOT[:, : len(yt)] % len(yt)]
+    boots = [r2(yt[b], yh[b]) for b in boot_idx(len(yt))]
     m["r2_ci"] = [float(np.percentile(boots, 2.5)), float(np.percentile(boots, 97.5))]
     m["alpha"] = p.alpha
     m["val"] = metrics(name, y[idx["val"]], p.predict(X[idx["val"]]), log)  # for layer selection

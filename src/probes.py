@@ -101,3 +101,9 @@ def fit_ridge(X, y, X_val=None, y_val=None, alphas=ALPHAS, alpha=None, standardi
     scores = [r2(y_val, Xv @ W + b) for W in Ws]
     i = int(np.argmax(scores))
     return Ridge(mu, sd, Ws[i], b, alphas[i])
+
+
+def circ_mean(a: np.ndarray) -> tuple[float, float]:
+    """Circular mean (deg, in [0, 360)) and resultant length R in [0, 1] (R ~ 0: no preferred angle)."""
+    z = np.exp(1j * np.radians(a)).mean()
+    return float(np.degrees(np.angle(z)) % 360), float(np.abs(z))
