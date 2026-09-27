@@ -34,13 +34,29 @@ Probe: ridge regression on mean-pooled residual-stream features.
   | 1 | 12.4° | 11.9° | 20.1° |
   | 12 | 3.9° | 4.0° | 5.3° |
 - Concatenating per-timestep means does about the same as the plain mean pool.
-- **Versus the paper:** Joseph et al. find direction emerging abruptly at layer 8 (their "PEZ"). We see no abrupt emergence in R², only a gradual error decline that levels off around L10–13. Plausible reasons:
-  - their stimulus is a shaded 3D sphere on a textured floor, with 8 discrete directions and 7 speeds;
-  - their probe protocol is different.
+- **Sanity checks** (layers 1, 9 and 12):
+  - shuffled-label probes give test R² ≈ 0 (−0.04 to 0.00);
+  - 5-fold stratified cross-validation matches the single split: direction R² 0.864 / 0.980 / 0.985, and fold standard deviations are at most 0.008;
+  - no duplicate clips exist in any dataset.
+- **Layer indexing versus the paper:** Joseph et al. number the 24 *blocks* 0–23. Their "layer ℓ" is our layer ℓ+1, because our layer 0 is the patch embedding. Their PEZ at layer 8 is therefore our **layer 9**.
+- **Versus the paper**, at their first block (our layer 1):
+
+  | variable | theirs | ours |
+  |---|---:|---:|
+  | direction R² | 0.22 | 0.86 |
+  | speed R² | 0.85 | 0.98 |
+  | acceleration R² | 0.78 | 0.98 |
+
+  Speed and acceleration agree qualitatively: both are available early. Direction does not. We see no jump into our layer 9, only a gradual error decline: 11.3° at layer 1, 4.1° at layer 9, 3.5° at layer 12 (5-fold CV).
+
+  Plausible reasons for the direction gap:
+  - Our stimulus is a flat 2D disk seen head-on. Theirs is a perspective-rendered 3D sphere on a textured floor.
+  - They use 8 discrete directions.
+  - Their probes are trained by gradient descent with a weight-decay sweep.
 
 ## Experiment 2: iterative nullspace probing at layer 12 (`inlp_curves.png`, `inlp_by_layer.png`)
 
-Layer choice: the earliest layer where direction val error is within 1.25× of its best. The paper's R²-jump rule is degenerate here.
+Layer choice: the earliest layer where direction val error is within 1.25× of its best. The paper's R²-jump rule is degenerate here. Layer 12 here corresponds to the paper's layer 11.
 
 - **R² falls below 0.3 after removing:**
   - direction: about 60 dimensions (30 sin/cos probes);
@@ -52,10 +68,10 @@ Layer choice: the earliest layer where direction val error is within 1.25× of i
 - **Removing the top principal components kills decoding almost immediately.** Direction falls below R² 0.1 after 4 PCs, and speed and acceleration after 13. The kinematic variables *are* the dominant variance of the pooled representation, which makes sense because nothing else varies in these clips.
 - **Across layers:**
   - Layers 1–7 are extremely redundant: none of the variables drops below 0.3 within an 80-probe budget.
-  - A transition at **layer 8** makes the representation markedly more compact, at about 45–60 dimensions for all three variables.
+  - A transition at **layer 8** (paper indexing: 7, one block before their PEZ) makes the representation markedly more compact, at about 45–60 dimensions for all three variables.
   - The dimension count then climbs slowly toward the output.
   
-  This layer-8 transition coincides with the paper's PEZ, and is worth highlighting.
+  This transition sits right at the paper's PEZ, and is worth highlighting.
 - There is no sawtooth. We remove sin and cos together (2 dims per step), and the paper's sawtooth was in accuracy-within-15°.
 
 ## Experiment 3a: multi-probe subspace steering, paper protocol (`steer_pooled.png`)
