@@ -42,6 +42,11 @@ Conventions:
   - In every setting the rise is complete by our L6, not L9.
   - Raw-feature and standardised ridge agree once the α grid is scaled correctly.
 
+## Per-patch probes and held-out-value steering (2026-09-27)
+- One ridge probe per spatial patch on time-averaged tokens (direction set), test R² median by layer: L1 0.55, L2 0.73, L4 0.81, L6 0.95, L9 0.97, L12 0.97, L24 0.93. Corner patches at L1–2 are far below 0. Individual patches decode direction by our L6; the paper's per-patch transition is at its L8 (our L9).
+- Cross-half: a probe trained on left-half tokens scores on right-half tokens 0.81 (L1), 0.94 (L6), 0.96 (L9), 0.94 (L12), 0.83 (L24). Spatial generalisation is present from L1 and degrades after L12.
+- Held-out-value steering (`steer_heldout.json`): INLP on train (48 values), read-out probe on val, steered clips have the 16 withheld values. Error to unseen vs seen targets at N=10: direction 4.3° / 4.3°, speed 0.088 / 0.088 m/s, acceleration 0.23 / 0.23 m/s². The read-out probe's error on the held-out clips (4.8°, 0.115 m/s, 0.35 m/s²) is its own interpolation error.
+
 ## Experiment 2: nullspace probing
 - **Our protocol at L12** (chosen on val): test R² falls below 0.3 after removing 58 dims (direction), 51 (speed) and 48 (acceleration).
   - Removing random directions leaves R² at 0.98.
@@ -116,7 +121,6 @@ Conventions:
   - wrong numbers in the report: acceleration range, 8 px, 0.67 s, 7%.
 
 ## Next
-- Per-patch probes (where the paper's appendix places the transition).
 - A training-set size sweep.
 - Motion-type classification with distance travelled matched.
 - Stronger steering: disk tokens only, re-applied at every layer, or at later layers.
