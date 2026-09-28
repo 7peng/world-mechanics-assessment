@@ -110,14 +110,12 @@ for j, n in enumerate(VARS):
     b.plot(X[1:], [m[k] for m in r["vjepa2_random"]][1:], color=GRAY, ls=DOT)
     b.set_xlim(-0.5, 24.5); b.set_ylim(0, {"direction": 40, "speed": 0.4, "acceleration": 1.0}[n])
     b.axhline(r["centroid_poly2"][k], color=GREEN, lw=1.3)
-    if r["pixels"][k] <= b.get_ylim()[1]:
-        b.axhline(r["pixels"][k], color=GREEN, lw=1.3, ls=DASH)
     b.set_xticks([0, 4, 8, 12, 16, 20, 24]); b.set_ylabel(UNIT[n]); b.set_title(n)
     if j == 1:
         b.set_xlabel("layer")
 axes[0, 0].set_ylabel("test R²")
 row_legend(axes[0, 2], [H(BLUE, "ours"), H(BLUE, "ours, per-patch median", ls=DASH), H(GRAY, "random init", ls=DOT)])
-row_legend(axes[1, 2], [H(BLUE, "ours"), H(GRAY, "random init", ls=DOT), H(GREEN, "centroid baseline"), H(GREEN, "pixel baseline", ls=DASH)])
+row_legend(axes[1, 2], [H(BLUE, "ours"), H(GRAY, "random init", ls=DOT), H(GREEN, "centroid baseline")])
 fig.tight_layout()
 save(fig, "f1_probes.png")
 

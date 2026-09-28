@@ -66,7 +66,7 @@ footer{margin-top:40px;font-size:13.5px;color:var(--muted);border-top:1px solid 
 
 <h2>Results</h2>
 <figure><img src="__F1__" alt="Linear probe R² and error by layer for direction, speed and acceleration">
-<figcaption><b>Fig. 1. Layer-wise probing.</b> Test R² (top) and error (bottom) by layer. Dashed: median over 256 per-patch probes, which reaches 0.95 by layer 6 (paper: layer 8, our 9). Layer 0 (pooled patch embedding) carries almost nothing. The pixel baseline is off-scale for speed (0.93 m/s) and acceleration (2.6 m/s²). Paper protocol on our data at their layer 0: R² 0.66 / 0.88 / 0.82 (paper: ≈0.22 / 0.85 / 0.78).</figcaption></figure>
+<figcaption><b>Fig. 1. Layer-wise probing.</b> Test R² (top) and error (bottom) by layer. Dashed: median over 256 per-patch probes, which reaches 0.95 by layer 6 (paper: layer 8, our 9). Layer 0 (pooled patch embedding) carries almost nothing. Paper protocol on our data at their layer 0: R² 0.66 / 0.88 / 0.82 (paper: ≈0.22 / 0.85 / 0.78).</figcaption></figure>
 
 <figure><img src="__F2__" alt="Nullspace probing curves and dimensions by layer">
 <figcaption><b>Fig. 2. Iterative nullspace probing.</b> At layer 12, R² falls below 0.3 after 58 / 51 / 48 removed dimensions. Random directions do nothing; the top 4–13 principal components remove everything. Right: dimensions needed by layer; redundancy drops sharply between layers 7 and 8. Paper protocol at its layer 8: median 60 direction probes (120 dims), 44 speed, 26 acceleration; the paper reports ≈44 and ≈28.</figcaption></figure>
