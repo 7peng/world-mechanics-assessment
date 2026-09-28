@@ -94,18 +94,30 @@ pp = R("paper_protocol_vjepa2.json")
 patch = R("probe_patches.json")
 patch_layers = patch["layers"]
 patch_med = [float(np.median(patch["per_patch_r2"][str(l)])) for l in patch_layers]
-fig, axes = plt.subplots(1, 3, figsize=(11.5, 3.3))
+fig, axes = plt.subplots(2, 3, figsize=(11.5, 6))
 X = np.arange(25)
-for a, n in zip(axes, VARS):
+for j, n in enumerate(VARS):
     r = pl[n]["raw"]
+    k = "circ_mae_deg" if n == "direction" else "mae"
+    a = axes[0, j]
     a.plot(X, [m["r2"] for m in r["vjepa2"]], color=BLUE)
     a.plot(X, [m["r2"] for m in r["vjepa2_random"]], color=GRAY, ls=DOT)
     if n == "direction":
         a.plot(patch_layers, patch_med, color=BLUE, ls=DASH)
     a.set_xlim(-0.5, 24.5); a.set_ylim(0, 1.03); a.set_title(n); a.set_xticks([0, 4, 8, 12, 16, 20, 24])
-axes[0].set_ylabel("test R²")
-axes[1].set_xlabel("layer")
-row_legend(axes[2], [H(BLUE, "ours"), H(BLUE, "ours, per-patch median", ls=DASH), H(GRAY, "random init", ls=DOT)])
+    b = axes[1, j]
+    b.plot(X[1:], [m[k] for m in r["vjepa2"]][1:], color=BLUE)
+    b.plot(X[1:], [m[k] for m in r["vjepa2_random"]][1:], color=GRAY, ls=DOT)
+    b.set_xlim(-0.5, 24.5); b.set_ylim(0, {"direction": 40, "speed": 0.4, "acceleration": 1.0}[n])
+    b.axhline(r["centroid_poly2"][k], color=GREEN, lw=1.3)
+    if r["pixels"][k] <= b.get_ylim()[1]:
+        b.axhline(r["pixels"][k], color=GREEN, lw=1.3, ls=DASH)
+    b.set_xticks([0, 4, 8, 12, 16, 20, 24]); b.set_ylabel(UNIT[n]); b.set_title(n)
+    if j == 1:
+        b.set_xlabel("layer")
+axes[0, 0].set_ylabel("test R²")
+row_legend(axes[0, 2], [H(BLUE, "ours"), H(BLUE, "ours, per-patch median", ls=DASH), H(GRAY, "random init", ls=DOT)])
+row_legend(axes[1, 2], [H(BLUE, "ours"), H(GRAY, "random init", ls=DOT), H(GREEN, "centroid baseline"), H(GREEN, "pixel baseline", ls=DASH)])
 fig.tight_layout()
 save(fig, "f1_probes.png")
 
