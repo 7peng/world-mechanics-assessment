@@ -123,7 +123,6 @@ row_legend(axes[0, 2], [H(BLUE, "ours"), H(BLUE, "ours, per-patch median", ls=(0
 row_legend(axes[1, 2], [H(BLUE, "ours"), H(GRAY, "random init"),
                         H(GREEN, "centroid baseline", ls=(0, (4, 2)), marker="none"),
                         H(GREEN, "pixel baseline", ls=(0, (1, 2)), marker="none")])
-title(fig, "Layer-wise probing")
 fig.tight_layout()
 save(fig, "f1_probes.png")
 
@@ -154,7 +153,6 @@ leg1 = a.legend(handles=[H(BLUE, "INLP directions", marker="none"), H(GRAY, "ran
 a.add_artist(leg1)
 a.legend(handles=[H(C[n], n) for n in VARS], loc="lower left", bbox_to_anchor=(1.04, 0.0), borderaxespad=0,
          title="right panel", title_fontsize=8.5)
-title(fig, "Nullspace probing")
 fig.tight_layout()
 save(fig, "f2_nullspace.png", extra=[leg1])
 
@@ -197,7 +195,6 @@ row_legend(axes[0, 2], [H(BLUE, "→ target"), H(BLUE, "→ original label", ls=
                         H(DARK, "paper, Fig. 24", ls="none", mfc="white")])
 row_legend(axes[1, 2], [Line2D([], [], color=BLUE, alpha=al, marker="o", ms=2.8, label=f"N = {Nn}") for Nn, al in ((1, 0.35), (5, 0.6), (20, 1.0))]
            + [H(GRAY, "random edit"), H(DARK, "unsteered floor", ls=(0, (1, 1.5)), marker="none")])
-title(fig, "Subspace steering")
 fig.tight_layout()
 save(fig, "f3_steering.png")
 
