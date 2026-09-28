@@ -94,36 +94,18 @@ pp = R("paper_protocol_vjepa2.json")
 patch = R("probe_patches.json")
 patch_layers = patch["layers"]
 patch_med = [float(np.median(patch["per_patch_r2"][str(l)])) for l in patch_layers]
-fig2c = {"direction": (0.22, 0.93), "speed": (0.85, 0.96), "acceleration": (0.78, 0.90)}
-fig, axes = plt.subplots(2, 3, figsize=(11.5, 6))
+fig, axes = plt.subplots(1, 3, figsize=(11.5, 3.3))
 X = np.arange(25)
-for j, n in enumerate(VARS):
+for a, n in zip(axes, VARS):
     r = pl[n]["raw"]
-    k = "circ_mae_deg" if n == "direction" else "mae"
-    a = axes[0, j]
-    a.plot(X, [m["r2"] for m in r["vjepa2"]], color=BLUE, **MK)
-    a.plot(X[1:], pp[n]["layerwise"]["exact_mean"], color=ORANGE, **MK)
+    a.plot(X, [m["r2"] for m in r["vjepa2"]], color=BLUE)
     a.plot(X, [m["r2"] for m in r["vjepa2_random"]], color=GRAY, ls=DOT)
     if n == "direction":
         a.plot(patch_layers, patch_med, color=BLUE, ls=DASH)
-    a.plot([1, 9], fig2c[n], "o", mfc="white", mec=DARK, ms=5, mew=1.2)
     a.set_xlim(-0.5, 24.5); a.set_ylim(0, 1.03); a.set_title(n); a.set_xticks([0, 4, 8, 12, 16, 20, 24])
-    b = axes[1, j]
-    b.plot(X[1:], [m[k] for m in r["vjepa2"]][1:], color=BLUE, **MK)
-    b.plot(X[1:], [m[k] for m in r["vjepa2_random"]][1:], color=GRAY, ls=DOT)
-    b.set_xlim(-0.5, 24.5); b.set_ylim(0, {"direction": 40, "speed": 0.4, "acceleration": 1.0}[n])
-    b.axhline(r["centroid_poly2"][k], color=GREEN, lw=1.3)
-    if r["pixels"][k] <= b.get_ylim()[1]:
-        b.axhline(r["pixels"][k], color=GREEN, lw=1.3, ls=DASH)
-    b.set_xticks([0, 4, 8, 12, 16, 20, 24]); b.set_ylabel(UNIT[n]); b.set_title(n)
-    if j == 1:
-        b.set_xlabel("layer")
-axes[0, 0].set_ylabel("test R²")
-row_legend(axes[0, 2], [H(BLUE, "ours"), H(BLUE, "ours, per-patch median", ls=DASH),
-                        H(ORANGE, "paper protocol"), H(GRAY, "random init", ls=DOT),
-                        H(DARK, "paper, Fig. 2c", ls="none", marker="o", mfc="white")])
-row_legend(axes[1, 2], [H(BLUE, "ours"), H(GRAY, "random init", ls=DOT),
-                        H(GREEN, "centroid baseline"), H(GREEN, "pixel baseline", ls=DASH)])
+axes[0].set_ylabel("test R²")
+axes[1].set_xlabel("layer")
+row_legend(axes[2], [H(BLUE, "ours"), H(BLUE, "ours, per-patch median", ls=DASH), H(GRAY, "random init", ls=DOT)])
 fig.tight_layout()
 save(fig, "f1_probes.png")
 
@@ -167,13 +149,6 @@ for j, n in enumerate(VARS):
     a.plot(N, [x["to_target"]["strict"] for x in sp[n]["steer"]], color=BLUE, **MK)
     a.plot(N, [x["to_truth"]["strict"] for x in sp[n]["steer"]], color=BLUE, ls=DASH)
     a.plot(N, [x["to_target"]["strict"] for x in sp[n]["random"]], color=GRAY, ls=DOT)
-    if n == "direction":
-        st = pp["direction"]["steer"]["block_output"]["runs"]
-        Np = [x["N"] for x in st[0]["steer"]]
-        tt = np.array([[x["to_target"] for x in r["steer"]] for r in st])
-        a.plot(Np, tt.mean(0), color=ORANGE, **MK)
-        a.fill_between(Np, tt.min(0), tt.max(0), color=ORANGE, alpha=0.15, lw=0)
-        a.plot([1, 2, 3, 5, 10, 15, 20], [77, 66, 61, 51, 24, 14, 11.9], "o", mfc="white", mec=DARK, ms=5, mew=1.2)
     a.set_xticks([1, 3, 10, 30, 100]); a.set_xticklabels(["1", "3", "10", "30", "100"]); a.minorticks_off()
     a.set_title(n); a.set_ylabel(UNIT[n] + " to target")
     if j == 1:
@@ -190,9 +165,7 @@ for j, n in enumerate(VARS):
     b.set_xticks([12, 14, 16, 18, 20, 22, 24]); b.set_title(n); b.set_ylabel(UNIT[n] + " to target")
     if j == 1:
         b.set_xlabel("read-out layer (edit at layer 12)")
-row_legend(axes[0, 2], [H(BLUE, "→ target"), H(BLUE, "→ original label", ls=DASH),
-                        H(GRAY, "random edit", ls=DOT), H(ORANGE, "paper protocol, layer 8"),
-                        H(DARK, "paper, Fig. 24", ls="none", marker="o", mfc="white")])
+row_legend(axes[0, 2], [H(BLUE, "→ target"), H(BLUE, "→ original label", ls=DASH), H(GRAY, "random edit", ls=DOT)])
 row_legend(axes[1, 2], [Line2D([], [], color=BLUE, alpha=al, label=f"N = {Nn}") for Nn, al in ((1, 0.35), (5, 0.6), (20, 1.0))]
            + [H(GRAY, "random edit", ls=DOT), H(DARK, "unsteered floor", ls=DASH)])
 fig.tight_layout()
