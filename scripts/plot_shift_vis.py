@@ -72,13 +72,13 @@ for a, name in zip(axes, ("speed", "acceleration")):
     a.scatter(*ends.T, s=60, facecolor="white", edgecolor="#222", lw=1.5, zorder=4)
     sc = a.scatter(*pr(C[~held]).T, c=allv[~held], cmap="viridis", vmin=allv.min(), vmax=allv.max(), s=16, zorder=3)
     a.scatter(*pr(C[held]).T, c=allv[held], cmap="viridis", vmin=allv.min(), vmax=allv.max(), s=34, marker="D", edgecolor="#222", lw=0.8, zorder=3)
-    a.set_title(name); a.set_xticks([]); a.set_yticks([]); a.set_xlabel("PC1"); a.set_ylabel("PC2")
+    a.set_title(name); a.set_xticks([]); a.set_yticks([]); a.set_xlabel("PC1"); a.set_ylabel("PC2" if name == "speed" else "")
     fig.colorbar(sc, ax=a, fraction=0.04, pad=0.02).set_label("m/s" if name == "speed" else "m/s²")
-fig.legend(handles=[Line2D([], [], color="#222", lw=2, label="curve fit on the middle values"),
-                    Line2D([], [], ls="none", marker="o", mfc="white", mec="#222", ms=8, label="naive: targets past the ends map here"),
-                    Line2D([], [], color="#e8702a", lw=2, ls=(0, (3, 2)), label="fix: linear extension"),
-                    Line2D([], [], ls="none", marker="D", mfc="#bbb", mec="#222", ms=6, label="centroids of withheld end values")],
-           loc="lower center", ncol=2, bbox_to_anchor=(0.5, -0.12))
+fig.legend(handles=[Line2D([], [], color="#222", lw=2, label="fitted curve"),
+                    Line2D([], [], ls="none", marker="o", mfc="white", mec="#222", ms=8, label="naive (clamped end)"),
+                    Line2D([], [], color="#e8702a", lw=2, ls=(0, (3, 2)), label="linear extension"),
+                    Line2D([], [], ls="none", marker="D", mfc="#bbb", mec="#222", ms=6, label="withheld values")],
+           loc="lower center", ncol=4, bbox_to_anchor=(0.5, -0.07))
 fig.tight_layout()
 fig.savefig(OUT / "figures" / "report" / "manifold_extrapolation.png", dpi=150, bbox_inches="tight", pad_inches=0.15)
 plt.close(fig)
@@ -108,7 +108,7 @@ cen = curve.mean(0)
 p = lambda Zz: (Zz - cen) @ P2
 th = df.theta_degrees.values[rows]
 fig, axes = plt.subplots(1, 2, figsize=(10.5, 4), sharex=True, sharey=True)
-for a, Zn, title in ((axes[0], Zr, "naive: replace with the curve point"), (axes[1], Zs, "fix: shift along the curve")):
+for a, Zn, title in ((axes[0], Zr, "naive"), (axes[1], Zs, "shift along curve")):
     a.plot(*p(curve).T, color="#222", lw=2, zorder=2)
     a0, a1 = p(Z0), p(Zn)
     for (x0, y0), (x1, y1) in zip(a0, a1):
@@ -116,12 +116,12 @@ for a, Zn, title in ((axes[0], Zr, "naive: replace with the curve point"), (axes
     a.scatter(*a0.T, c=th, cmap="twilight", vmin=0, vmax=360, s=26, edgecolor="#333", lw=0.4, zorder=3)
     sc = a.scatter(*a1.T, c=th, cmap="twilight", vmin=0, vmax=360, s=40, marker="s", edgecolor="#333", lw=0.4, zorder=4)
     a.scatter(*p(man.point(T)).T, s=90, marker="*", color="#e8702a", edgecolor="#222", lw=0.6, zorder=5)
-    a.set_title(title); a.set_xlabel("along the speed curve  →  faster"); a.set_xticks([]); a.set_yticks([])
-axes[0].set_ylabel("direction-carrying axis")
-fig.colorbar(sc, ax=axes, fraction=0.025, pad=0.02).set_label("clip's direction θ (°)")
+    a.set_title(title); a.set_xlabel("speed curve axis  →"); a.set_xticks([]); a.set_yticks([])
+axes[0].set_ylabel("direction axis")
+fig.colorbar(sc, ax=axes, fraction=0.025, pad=0.02).set_label("θ (°)")
 fig.legend(handles=[Line2D([], [], color="#222", lw=2, label="speed curve"),
-                    Line2D([], [], ls="none", marker="o", mfc="#ccc", mec="#333", label="slow clips before steering"),
-                    Line2D([], [], ls="none", marker="s", mfc="#ccc", mec="#333", label="after steering to 3 m/s"),
-                    Line2D([], [], ls="none", marker="*", mfc="#e8702a", mec="#222", ms=11, label="curve point for 3 m/s")],
+                    Line2D([], [], ls="none", marker="o", mfc="#ccc", mec="#333", label="before"),
+                    Line2D([], [], ls="none", marker="s", mfc="#ccc", mec="#333", label="after (target 3 m/s)"),
+                    Line2D([], [], ls="none", marker="*", mfc="#e8702a", mec="#222", ms=11, label="target on curve")],
            loc="lower center", ncol=4, bbox_to_anchor=(0.45, -0.1))
 fig.savefig(OUT / "figures" / "report" / "shift_vs_replace.png", dpi=150, bbox_inches="tight", pad_inches=0.15)
