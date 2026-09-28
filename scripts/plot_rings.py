@@ -124,7 +124,7 @@ for k, mode in enumerate(("naive", "shift along curve")):
         if mode == "naive":
             P = np.c_[pos[i] + ts * (x_end - pos[i]), R[i, 0] * (1 - ts), R[i, 1] * (1 - ts)]
         else:
-            P = np.c_[pos[i] + ts * (x_end - pos[i]), np.full(40, R[i, 0]), np.full(40, R[i, 1])]
+            P = np.c_[pos[i] + ts * (x_end - pos[i]), np.full(len(ts), R[i, 0]), np.full(len(ts), R[i, 1])]
         for j in range(len(P) - 1):
             segs.append((near(P[j:j + 2]), P[j:j + 2], col(t_all[i]), "path"))
         ends.append((near(P[0]), P[0], col(t_all[i]), "o"))
