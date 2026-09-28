@@ -18,6 +18,7 @@ import numpy as np
 from src.data import OUT
 
 VARS = ["direction", "speed", "acceleration"]
+LT = [4, 8, 12, 16, 20, 24]
 BLUE, ORANGE, GRAY, DARK, GREEN = "#1f77b4", "#ff7f0e", "#7f7f7f", "#333333", "#2ca02c"
 LIGHT_ORANGE = "#fdc692"
 DASH, DOT = (0, (4, 2)), (0, (1, 1.6))
@@ -60,23 +61,52 @@ legend_below(fig, [Line2D([], [], color=BLUE, label="subspace, pooled"), Line2D(
                    Line2D([], [], color="none", label=" "),
                    Line2D([], [], color=GREEN, lw=1.2, label="token swap (ceiling)"), Line2D([], [], color=GRAY, ls=DOT, label="no steering")], 3, y=-0.2)
 fig.tight_layout()
-fig.savefig(FIG / "f6_behavior_layers.png", dpi=150, bbox_inches="tight", pad_inches=0.1)
+fig.savefig(FIG / "supp_behavior_layers_unit_strength.png", dpi=150, bbox_inches="tight", pad_inches=0.1)
 plt.close(fig)
 
-# ---------------- f7: mean vs pattern
-fig, axes = plt.subplots(1, 3, figsize=(12, 3.4), sharey=True)
-for j, (a, n) in enumerate(zip(axes, VARS)):
-    d = R(f"behavior_decompose_{n}.json")
-    Ls = sorted(int(l) for l in d["layers"])
-    for k, col, ls in (("full", GREEN, "-"), ("pattern", BLUE, "-"), ("mean", ORANGE, "-")):
-        a.plot(Ls, [d["layers"][str(l)][k]["follows_donor_pct"] for l in Ls], color=col, ls=ls)
-    a.set_title(n); a.set_xticks([0, 4, 8, 12, 16, 20, 24]); a.set_ylim(0, 105)
-    if j == 1:
-        a.set_xlabel("swap layer")
-axes[0].set_ylabel("% following donor")
-legend_below(fig, [Line2D([], [], color=GREEN, label="all donor tokens"),
-                   Line2D([], [], color=BLUE, label="donor pattern only"),
-                   Line2D([], [], color=ORANGE, label="donor average only")], 3, y=-0.1)
+# ---------------- f6 (tuned): strength chosen on val per (method, layer); layers 12, 24 from behavior_final_<n>.json
+TUNED = lambda n, L: OUT / "results" / (f"behavior_final_{n}.json" if L in (12, 24) else f"behavior_final_{n}_L{L}.json")
+if all(TUNED(n, L).exists() for n in VARS for L in LT):
+    M6 = [("pooled_subspace", BLUE, "-", "subspace, pooled"), ("pooled_shift", ORANGE, "-", "shift along curve, pooled"),
+          ("pooled_spline", LIGHT_ORANGE, "-", "naive spline, pooled"),
+          ("token_subspace", BLUE, DASH, "subspace, per-token"), ("token_spline", ORANGE, DASH, "shift along curve, per-token")]
+    fig, axes = plt.subplots(1, 3, figsize=(12, 3.4), sharey=True)
+    for j, (a, n) in enumerate(zip(axes, VARS)):
+        sw = R(f"behavior_sweep_ctx_{n}.json")
+        a.axhline(sw["donor"]["12"]["within_pct"], color=GREEN, lw=1.2)
+        a.axhline(R(f"behavior_final_{n}.json")["clean"]["on_target_pct"], color=GRAY, ls=DOT)
+        for m, c, ls, lab in M6:
+            a.plot(LT, [R(TUNED(n, L).name)["layers"][str(L)][m]["on_target_pct"] for L in LT], color=c, ls=ls)
+        a.set_title(n); a.set_xticks(LT); a.set_xlim(3, 25); a.set_ylim(0, 105)
+        if j == 1:
+            a.set_xlabel("edit layer")
+    axes[0].set_ylabel("% on target")
+    legend_below(fig, [Line2D([], [], color=c, ls=ls, label=l) for _, c, ls, l in M6[:3]]
+                 + [Line2D([], [], color=c, ls=ls, label=l) for _, c, ls, l in M6[3:]] + [Line2D([], [], color="none", label=" "),
+                 Line2D([], [], color=GREEN, lw=1.2, label="token swap (ceiling)"), Line2D([], [], color=GRAY, ls=DOT, label="no steering")], 3, y=-0.2)
+    fig.tight_layout()
+    fig.savefig(FIG / "f6_behavior_layers.png", dpi=150, bbox_inches="tight", pad_inches=0.1)
+    plt.close(fig)
+
+# ---------------- f7: mean vs pattern — what the forecast does with each hybrid
+fig, axes = plt.subplots(2, 3, figsize=(12, 5.4), sharex=True, sharey=True)
+for i, (k, row) in enumerate((("pattern", "donor pattern\nswapped in"), ("mean", "donor average\nswapped in"))):
+    for j, n in enumerate(VARS):
+        a = axes[i, j]
+        d = R(f"behavior_decompose_{n}.json")
+        Ls = sorted(int(l) for l in d["layers"])
+        don = np.array([d["layers"][str(l)][k]["follows_donor_pct"] for l in Ls])
+        org = np.array([d["layers"][str(l)][k]["keeps_original_pct"] for l in Ls])
+        a.stackplot(Ls, don, org, 100 - don - org, colors=[ORANGE, BLUE, "#c8c8d0"], lw=0)
+        a.set_xticks([0, 4, 8, 12, 16, 20, 24]); a.set_xlim(0, 24); a.set_ylim(0, 100); a.grid(False)
+        if i == 0:
+            a.set_title(n)
+        if i == 1 and j == 1:
+            a.set_xlabel("swap layer")
+        if j == 0:
+            a.set_ylabel(f"{row}\n% of forecasts")
+legend_below(fig, [plt.Rectangle((0, 0), 1, 1, fc=ORANGE, label="follows donor"), plt.Rectangle((0, 0), 1, 1, fc=BLUE, label="keeps original"),
+                   plt.Rectangle((0, 0), 1, 1, fc="#c8c8d0", label="neither")], 3, y=-0.06)
 fig.tight_layout()
 fig.savefig(FIG / "f7_mean_vs_pattern.png", dpi=150, bbox_inches="tight", pad_inches=0.1)
 plt.close(fig)
@@ -122,7 +152,7 @@ if all(f.exists() for f in DEC.values()):
           ("spline", LIGHT_ORANGE, "-", "curve path, naive spline, pooled"),
           ("token_chord", BLUE, DASH, "straight path, per-token"), ("token_spline", ORANGE, DASH, "curve path, shift along curve, per-token")]
     SHOW = [("subspace_linear", BLUE, "straight path"), ("shift", ORANGE, "curve path, pooled"), ("token_spline", ORANGE, "curve path, per-token")]
-    fig, axes = plt.subplots(2, 4, figsize=(13, 6.4), gridspec_kw={"width_ratios": [1, 1, 1, 1.25]})
+    fig, axes = plt.subplots(2, 3, figsize=(10, 6.4))
     for i, L in enumerate(("24", "12")):
         P = R(DEC[L].name)["layers"][L]["span180"]
         ideal = np.array(P["ideal"]); turn = np.linspace(0, 180, ideal.shape[1])
@@ -143,18 +173,29 @@ if all(f.exists() for f in DEC.values()):
                 a.set_ylabel(f"layer {L}\nforecast turn (°)")
             else:
                 a.set_yticklabels([])
-        a = axes[i, 3]
-        for m, col, ls, lab in M9:
-            a.plot(turn, P[m]["on_path_pct_by_waypoint"], color=col, ls=ls)
-        a.set_ylim(0, 105); a.set_xlim(0, 180); a.set_xticks([0, 90, 180])
-        a.set_ylabel("% within 15° of intended")
-        if i == 0:
-            a.set_title("summary")
-        if i == 1:
-            a.set_xlabel("intended turn (°)")
-    legend_below(fig, [Line2D([], [], color=DARK, ls=DOT, lw=1.2, label="ideal (±15° band)")]
-                 + [Line2D([], [], color=c, ls=ls, label=l) for _, c, ls, l in M9], 3, y=-0.07)
+    legend_below(fig, [Line2D([], [], color=DARK, ls=DOT, lw=1.2, label="ideal (±15° band)"),
+                       Line2D([], [], color=BLUE, lw=0.8, label="one test clip, straight path"),
+                       Line2D([], [], color=ORANGE, lw=0.8, label="one test clip, curve path (shift along curve)")], 3, y=-0.05)
     fig.tight_layout()
     fig.savefig(FIG / "f9_behavior_paths.png", dpi=150, bbox_inches="tight", pad_inches=0.1)
+    plt.close(fig)
+# ---------------- f10: causal split of the per-token edit into its token average (mean) and token pattern
+PURPLE = "#9467bd"
+PF = lambda n, L: OUT / "results" / f"behavior_pattern_{n}_L{L}.json"
+if all(PF(n, L).exists() for n in VARS for L in LT):
+    PARTS = [("full", ORANGE, DASH, "full per-token edit"), ("pattern", PURPLE, "-", "pattern part only"),
+             ("mean", GRAY, "-", "mean part only"), ("mean_nm", GRAY, DASH, "mean part, scaled to pattern's size")]
+    fig, axes = plt.subplots(1, 3, figsize=(12, 3.4), sharey=True)
+    for j, (a, n) in enumerate(zip(axes, VARS)):
+        a.axhline(R(f"behavior_final_{n}.json")["clean"]["on_target_pct"], color=GRAY, ls=DOT, lw=1.2)
+        for k, c, ls, lab in PARTS:
+            a.plot(LT, [R(PF(n, L).name)["layers"][str(L)][k]["on_target_pct"] for L in LT], color=c, ls=ls)
+        a.set_title(n); a.set_xticks(LT); a.set_xlim(3, 25); a.set_ylim(0, 105)
+        if j == 1:
+            a.set_xlabel("edit layer")
+    axes[0].set_ylabel("% on target")
+    legend_below(fig, [Line2D([], [], color=c, ls=ls, label=l) for _, c, ls, l in PARTS] + [Line2D([], [], color=GRAY, ls=DOT, lw=1.2, label="no steering")], 3, y=-0.16)
+    fig.tight_layout()
+    fig.savefig(FIG / "f10_pattern_vs_mean.png", dpi=150, bbox_inches="tight", pad_inches=0.1)
     plt.close(fig)
 print("ok")

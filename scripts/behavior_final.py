@@ -36,6 +36,7 @@ ap.add_argument("--layers", default="12,24")
 ap.add_argument("--n-val", type=int, default=64)
 ap.add_argument("--n-test", type=int, default=96)
 ap.add_argument("--only", default=None, help="comma list of methods; merge into the existing json")
+ap.add_argument("--tag", default="", help="output file suffix")
 args = ap.parse_args()
 name = args.dataset
 LAYERS = [int(v) for v in args.layers.split(",")]
@@ -61,8 +62,8 @@ th_readout = None if name == "direction" else fit_readout(model, name, df, targe
 Fp = load_features(name, "vjepa2_ctx").astype(np.float64)
 rng = np.random.default_rng(0)
 res = {"dataset": name, "tolerance": TOL, "targets": TARGETS, "scales": SCALES, "layers": {}}
-out_path = OUT / "results" / f"behavior_final_{name}.json"
-if args.only:
+out_path = OUT / "results" / f"behavior_final_{name}{args.tag}.json"
+if args.only and out_path.exists():
     res = json.loads(out_path.read_text())
 
 # clean rates on the test clips
