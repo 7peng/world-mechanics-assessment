@@ -1,4 +1,8 @@
-"""f6_behavior.png from outputs/results/steer_behavior.json."""
+"""Behavior figures (context-only predictor protocol).
+f6_behavior_layers.png  % of forecasts on target vs the layer where the edit is applied (unit strength), 4 methods
+f7_mean_vs_pattern.png  % of forecasts that follow a donor clip when only its token average / token pattern is swapped in
+f8_behavior_final.png   best strength per method (chosen on val), test: % on target and % with direction kept
+"""
 import json
 import sys
 from pathlib import Path
@@ -14,28 +18,86 @@ import numpy as np
 from src.data import OUT
 
 VARS = ["direction", "speed", "acceleration"]
-BLUE, ORANGE, GRAY, DARK = "#1f77b4", "#ff7f0e", "#7f7f7f", "#333333"
+BLUE, ORANGE, GRAY, DARK, GREEN = "#1f77b4", "#ff7f0e", "#7f7f7f", "#333333", "#2ca02c"
+DASH, DOT = (0, (4, 2)), (0, (1, 1.6))
 plt.rcParams.update({"figure.facecolor": "white", "axes.facecolor": "#EAEAF2", "axes.edgecolor": "white", "axes.linewidth": 0,
                      "axes.grid": True, "grid.color": "white", "axes.spines.top": False, "axes.spines.right": False,
                      "axes.spines.left": False, "axes.spines.bottom": False, "xtick.major.size": 0, "ytick.major.size": 0,
-                     "xtick.color": "#555", "ytick.color": "#555", "font.size": 9.5, "axes.titlesize": 10.5, "legend.frameon": False})
-res = json.loads((OUT / "results" / "steer_behavior.json").read_text())
-fig, axes = plt.subplots(1, 2, figsize=(10, 3.6), sharey=True)
-x = np.arange(3); w = 0.26
-conds = (("subspace", BLUE), ("spline", ORANGE), ("random", GRAY))
-for a, key, title in ((axes[0], "within_target_pct", "forecast moved to the steering target"),
-                      (axes[1], "within_original_pct", "forecast still shows the original value")):
-    for i, (c, col) in enumerate(conds):
-        a.bar(x + (i - 1) * w, [res[n][c][key] for n in VARS], w, color=col)
-    for xi, n in zip(x, VARS):
-        a.hlines(res[n]["unsteered"][key], xi - 0.42, xi + 0.42, color=DARK, ls=(0, (2, 2)), lw=1.2)
-    a.set_xticks(x); a.set_xticklabels(VARS); a.set_title(title); a.set_ylim(0, 102)
-axes[0].set_ylabel("% of clips (higher is better)")
-axes[0].text(2.42, res["acceleration"]["unsteered"]["within_target_pct"] + 2, "no steering", fontsize=8, color=DARK, ha="right")
-fig.legend(handles=[Line2D([], [], color=BLUE, lw=6, label="multi-probe subspace steering"), Line2D([], [], color=ORANGE, lw=6, label="spline steering"),
-                    Line2D([], [], color=GRAY, lw=6, label="random edit, same size")],
-           loc="lower center", ncol=3, bbox_to_anchor=(0.5, -0.1), borderaxespad=0)
-fig.text(0.5, -0.03, "behavior = predictor forecast of frames 9-16 from frames 1-8; edit at encoder layer 12; tolerance ±15°, ±0.375 m/s, ±0.975 m/s²",
-         ha="center", fontsize=8.5, color="#555")
+                     "xtick.color": "#555", "ytick.color": "#555", "font.size": 9.5, "axes.titlesize": 10.5, "legend.frameon": False,
+                     "lines.linewidth": 1.6})
+R = lambda f: json.loads((OUT / "results" / f).read_text())
+FIG = OUT / "figures" / "report"
+
+
+def legend_below(fig, handles, ncol, y=-0.08):
+    fig.legend(handles=handles, loc="lower center", ncol=ncol, bbox_to_anchor=(0.5, y), borderaxespad=0)
+
+
+# ---------------- f6: by layer
+fig, axes = plt.subplots(1, 3, figsize=(13, 3.6), sharey=True)
+for a, n in zip(axes, VARS):
+    sw, tk, ts = R(f"behavior_sweep_ctx_{n}.json"), R(f"behavior_token_ctx_{n}.json"), R(f"behavior_token_spline_{n}.json")
+    Ls = sorted(int(l) for l in sw["layers"])
+    a.plot(Ls, [sw["layers"][str(l)]["subspace"]["within_pct"] for l in Ls], color=BLUE)
+    a.plot(Ls, [sw["layers"][str(l)]["spline"]["within_pct"] for l in Ls], color=ORANGE)
+    Lt = sorted(int(l) for l in tk["layers"])
+    a.plot(Lt, [tk["layers"][str(l)]["all_tokens"]["within_pct"] for l in Lt], color=BLUE, ls=DASH)
+    Lp = sorted(int(l) for l in ts["layers"])
+    a.plot(Lp, [ts["layers"][str(l)]["displace"]["within_pct"] for l in Lp], color=ORANGE, ls=DASH)
+    a.axhline(sw["clean"]["within_target_pct"], color=GRAY, ls=DOT)
+    a.axhline(sw["donor"]["12"]["within_pct"], color=GREEN, lw=1.2)
+    a.set_title(f"steering {n}"); a.set_xlabel("encoder layer where the edit is applied"); a.set_xticks([4, 8, 12, 16, 20, 24])
+    a.set_ylim(0, 105)
+axes[0].set_ylabel("% of forecasts on target (higher is better)")
+axes[0].text(4, R("behavior_sweep_ctx_direction.json")["clean"]["within_target_pct"] + 2, "no steering", fontsize=8, color=GRAY)
+axes[0].text(4, 101, "swap in a target clip's tokens (ceiling)", fontsize=8, color=GREEN, va="top")
+legend_below(fig, [Line2D([], [], color=BLUE, label="subspace steering, pooled edit"), Line2D([], [], color=ORANGE, label="spline steering, pooled edit"),
+                   Line2D([], [], color=BLUE, ls=DASH, label="subspace steering, per-token edit"), Line2D([], [], color=ORANGE, ls=DASH, label="spline steering, per-token edit")], 4)
 fig.tight_layout()
-fig.savefig(OUT / "figures" / "report" / "f6_behavior.png", dpi=150, bbox_inches="tight", pad_inches=0.1)
+fig.savefig(FIG / "f6_behavior_layers.png", dpi=150, bbox_inches="tight", pad_inches=0.1)
+plt.close(fig)
+
+# ---------------- f7: mean vs pattern
+fig, axes = plt.subplots(1, 3, figsize=(13, 3.6), sharey=True)
+for a, n in zip(axes, VARS):
+    d = R(f"behavior_decompose_{n}.json")
+    Ls = sorted(int(l) for l in d["layers"])
+    for k, col, ls in (("full", GREEN, "-"), ("pattern", BLUE, "-"), ("mean", ORANGE, "-")):
+        a.plot(Ls, [d["layers"][str(l)][k]["follows_donor_pct"] for l in Ls], color=col, ls=ls)
+    a.set_title(n); a.set_xlabel("encoder layer where tokens are swapped"); a.set_xticks([0, 4, 8, 12, 16, 20, 24]); a.set_ylim(0, 105)
+axes[0].set_ylabel("% of forecasts showing the donor's motion")
+legend_below(fig, [Line2D([], [], color=GREEN, label="all tokens from the donor"),
+                   Line2D([], [], color=BLUE, label="donor's token pattern, original token average"),
+                   Line2D([], [], color=ORANGE, label="donor's token average, original token pattern")], 3)
+fig.tight_layout()
+fig.savefig(FIG / "f7_mean_vs_pattern.png", dpi=150, bbox_inches="tight", pad_inches=0.1)
+plt.close(fig)
+
+# ---------------- f8: final comparison (if available)
+if all((OUT / "results" / f"behavior_final_{n}.json").exists() for n in VARS):
+    M = [("pooled_subspace", BLUE, None, "subspace, pooled"), ("pooled_spline", ORANGE, None, "spline, pooled"),
+         ("token_subspace", BLUE, "//", "subspace, per-token"), ("token_spline", ORANGE, "//", "spline, per-token")]
+    Fs = {n: R(f"behavior_final_{n}.json") for n in VARS}
+    L = "24" if all("24" in Fs[n]["layers"] for n in VARS) else sorted(Fs["speed"]["layers"])[-1]
+    fig, axes = plt.subplots(1, 2, figsize=(12, 3.8), gridspec_kw={"width_ratios": [3, 2]})
+    a = axes[0]
+    x = np.arange(3); w = 0.2
+    for i, (m, col, hatch, lab) in enumerate(M):
+        a.bar(x + (i - 1.5) * w, [Fs[n]["layers"][L][m]["on_target_pct"] for n in VARS], w, color=col, hatch=hatch, edgecolor="white", lw=0)
+    for xi, n in zip(x, VARS):
+        a.hlines(Fs[n]["clean"]["on_target_pct"], xi - 0.45, xi + 0.45, color=GRAY, ls=DOT)
+    a.set_xticks(x); a.set_xticklabels([f"steering {n}" for n in VARS]); a.set_ylim(0, 105)
+    a.set_ylabel("% of forecasts on target (higher is better)"); a.set_title(f"reaches the target (edit at layer {L}, strength tuned on val)")
+    a = axes[1]
+    x = np.arange(2)
+    for i, (m, col, hatch, lab) in enumerate(M):
+        a.bar(x + (i - 1.5) * w, [Fs[n]["layers"][L][m]["direction_kept_pct"] for n in ("speed", "acceleration")], w, color=col, hatch=hatch, edgecolor="white", lw=0)
+    for xi, n in zip(x, ("speed", "acceleration")):
+        a.hlines(Fs[n]["clean"]["direction_kept_pct"], xi - 0.45, xi + 0.45, color=DARK, ls=DASH)
+    a.set_xticks(x); a.set_xticklabels(["steering speed", "steering acceleration"]); a.set_ylim(0, 105)
+    a.set_ylabel("% of forecasts with direction intact"); a.set_title("leaves direction intact")
+    legend_below(fig, [plt.Rectangle((0, 0), 1, 1, color=c, hatch=h, ec="white", lw=0, label=l) for _, c, h, l in M]
+                 + [Line2D([], [], color=GRAY, ls=DOT, label="no steering"), Line2D([], [], color=DARK, ls=DASH, label="direction intact before steering")], 3, y=-0.14)
+    fig.tight_layout()
+    fig.savefig(FIG / "f8_behavior_final.png", dpi=150, bbox_inches="tight", pad_inches=0.1)
+print("ok")
