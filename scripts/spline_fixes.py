@@ -2,6 +2,7 @@
   spline          baseline: replace PCA-64 with s(target) (B-spline clamps u to the fitted range)
   spline_extrap   same, but the curve is extended linearly beyond its ends (end slope)
   spline_disp     move along the curve: x + s(target) - s(u_hat), u_hat decoded by a val-fit pooled probe
+  spline_2d_shift shift along the clip's own curve on the joint manifold: x + s(target, θ_hat) - s(u_hat, θ_hat)
   spline_2d       joint manifold s(u, θ) (B-spline in u x Fourier in θ, fit on all train clips);
                   replace PCA-64 with s(target, θ_hat), θ_hat decoded by a val-fit pooled direction probe
 Metrics as f5: % on target (seen / unseen / outside range) and % with direction intact (seen).
@@ -77,12 +78,13 @@ for name in TOL:
         th_true = df.theta_degrees.values[st]
         u_hat = coord(name, np.clip(probe.predict(Xs)[:, 0], lab.min(), lab.max()))
         th_hat = np.radians(angle_deg(thp.predict(Xs)))
-        out = {m: {"on": [], "kept": []} for m in ("spline", "spline_extrap", "spline_disp", "spline_2d")}
+        out = {m: {"on": [], "kept": []} for m in ("spline", "spline_extrap", "spline_disp", "spline_2d_shift", "spline_2d")}
         for t in tvals:
             ut = coord(name, float(t))
             edits = {"spline": man.steer(Xs, float(t)),
                      "spline_extrap": Xs - man.lift(Zs) + man.lift(np.broadcast_to(s1(ut), Zs.shape)),
                      "spline_disp": Xs + man.lift(s1(np.full(len(Xs), ut)) - s1(u_hat)) - man.mu,
+                     "spline_2d_shift": Xs + man.lift((A2(np.full(len(Xs), ut), th_hat) - A2(u_hat, th_hat)) @ B2) - man.mu,
                      "spline_2d": Xs - man.lift(Zs) + man.lift(A2(np.full(len(Xs), ut), th_hat) @ B2)}
             for m, Xe in edits.items():
                 out[m]["on"].append(np.abs(probe.predict(Xe)[:, 0] - t) <= TOL[name])
