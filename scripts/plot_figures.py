@@ -78,7 +78,8 @@ def title(fig, text):
 
 
 def save(fig, name, extra=()):
-    fig.savefig(FIG / name, dpi=150, bbox_inches="tight", pad_inches=0.1, bbox_extra_artists=list(extra))
+    fig.savefig(FIG / name, dpi=150, bbox_inches="tight", pad_inches=0.1,
+                bbox_extra_artists=list(extra) + fig.get_default_bbox_extra_artists())
     plt.close(fig)
 
 
