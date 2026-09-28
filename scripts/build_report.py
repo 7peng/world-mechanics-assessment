@@ -1,6 +1,6 @@
 """Assemble docs/report/kinematics-v-jepa2.html from docs/report/template.html.
 
-Embeds the six figures from scripts/plot_figures.py and three example clips (test split, one per
+Embeds the three figures from scripts/plot_figures.py and three example clips (test split, one per
 set; re-encoded to H.264 because browsers do not play the supplied MPEG-4 Part 2) as data URIs.
 """
 import base64
@@ -45,7 +45,7 @@ for n, col, pick in [("direction", "theta_degrees", 225), ("speed", "speed_mps",
     vids.append({"src": h264_data_uri(df.video[i]), "dataset": n, "label": lab})
 
 t = (ROOT / "docs" / "report" / "template.html").read_text()
-for k, name in enumerate(["f1_probes", "f2_probe_type", "f3_nullspace", "f4_steer", "f5_propagate", "f6_confound", "f7_patches"], 1):
+for k, name in enumerate(["f1_probes", "f2_nullspace", "f3_steering"], 1):
     uri = "data:image/png;base64," + base64.b64encode((FIG / f"{name}.png").read_bytes()).decode()
     t = t.replace(f"__F{k}__", uri)
 t = t.replace("__VIDS__", json.dumps(vids, separators=(",", ":")).replace("</", "<\\/"))

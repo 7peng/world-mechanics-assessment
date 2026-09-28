@@ -92,4 +92,4 @@ for k, L in enumerate(show):
         s.set_visible(False)
 fig.colorbar(im, ax=fig.axes[2:], fraction=0.015, pad=0.01).set_label("per-patch test R²", fontsize=8)
 fig.suptitle("Per-patch direction probes", x=0.01, ha="left", fontsize=11)
-fig.savefig(OUT / "figures" / "report" / "f7_patches.png", dpi=150, bbox_inches="tight", pad_inches=0.08)
+fig.savefig(OUT / "figures" / "report" / "supp_patches.png", dpi=150, bbox_inches="tight", pad_inches=0.08)

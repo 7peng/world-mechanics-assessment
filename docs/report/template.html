@@ -66,25 +66,23 @@ footer{margin-top:40px;font-size:13.5px;color:var(--muted);border-top:1px solid 
 
 <h2>Results</h2>
 <figure><img src="__F1__" alt="Linear probe R² and error by layer for direction, speed and acceleration">
-<figcaption><b>Fig. 1.</b> Test R² (top) and error (bottom) by layer. Dashed: paper protocol on our data. Circles: paper, Fig. 2c. Layer 0 (pooled patch embedding) carries almost nothing.</figcaption></figure>
+<figcaption><b>Fig. 1. Layer-wise probing.</b> Test R² (top) and error (bottom) by layer. Dashed: paper protocol on our data. Circles: paper, Fig. 2c. Dotted: median over 256 per-patch probes, which reaches 0.95 by layer 6 (paper: layer 8, our 9). Layer 0 (pooled patch embedding) carries almost nothing.</figcaption></figure>
 
-<figure><img src="__F2__" alt="Direction R² by probe type on the full set and a 96-clip subset">
-<figcaption><b>Fig. 2.</b> Direction R² by probe type and data size (5-fold CV). The paper-style probe reaches 0.31 at layer 1 on 96 clips (0.57 with 10× the epochs) against 0.63 for ridge. In every case the rise is complete by layer 6.</figcaption></figure>
+<figure><img src="__F2__" alt="Nullspace probing curves and dimensions by layer">
+<figcaption><b>Fig. 2. Iterative nullspace probing.</b> At layer 12, R² falls below 0.3 after 58 / 51 / 48 removed dimensions. Random directions do nothing; the top 4–13 principal components remove everything. Right: dimensions needed by layer; redundancy drops sharply between layers 7 and 8. Paper protocol at its layer 8: median 60 direction probes (120 dims), 44 speed, 26 acceleration; the paper reports ≈44 and ≈28.</figcaption></figure>
 
-<figure><img src="__F7__" alt="Per-patch direction probe R² by layer, cross-half generalisation, and per-patch heatmaps">
-<figcaption><b>Fig. 3.</b> One direction probe per spatial patch, on time-averaged tokens. Patches decode direction individually by layer 6 (paper: layer 8, ours 9). A probe trained on left-half patches transfers to the right half at every layer, with a growing gap after layer 12.</figcaption></figure>
+<figure><img src="__F3__" alt="Steering error to target: read out at the steered layer, and downstream">
+<figcaption><b>Fig. 3. Multi-probe subspace steering.</b> Top: read out at the steered layer; our protocol reaches the unsteered floor at 10 probes. The paper protocol (3 splits) gives 8.4° at 20 probes, range 3.5–14°; the paper reports 11.9°. Bottom: the same edit added to every token at layer 12 and read out downstream with probes fit on clean data. Direction ends near the random-edit level; speed and acceleration keep part of the effect.</figcaption></figure>
 
-<figure><img src="__F3__" alt="Nullspace probing curves and dimensions by layer">
-<figcaption><b>Fig. 4.</b> Nullspace probing at layer 12. R² falls below 0.3 after 58 / 51 / 48 removed dimensions. Random directions do nothing; the top 4–13 principal components remove everything. Right: dimensions needed by layer under our protocol. The paper protocol at its layer 8 gives a median of 60 direction probes (120 dims), 44 speed and 26 acceleration; the paper reports ≈44 and ≈28.</figcaption></figure>
-
-<figure><img src="__F4__" alt="Steering error to target versus number of probes">
-<figcaption><b>Fig. 5.</b> Steering read out at the steered layer. Our protocol reaches the unsteered floor at 10 probes. With every 4th label value withheld from all probes, steering held-out clips to unseen values is as accurate as to seen values (4.3° vs 4.3°; 0.088 vs 0.088 m/s; 0.23 vs 0.23 m/s² at 10 probes). The paper protocol (3 splits) gives 8.4° at 20 probes, range 3.5–14°; the paper reports 11.9°. Its probe sequence never reached R² &lt; 0.1 within 25 probes (minimum 0.80).</figcaption></figure>
-
-<figure><img src="__F5__" alt="Steering read out at later layers, and the fraction of the edit retained">
-<figcaption><b>Fig. 6.</b> The layer-12 edit added to every token, then read out downstream with probes fit on clean data (top). Bottom: fraction of the edit still present along its own direction. Speed and acceleration edits decay like a real clip-to-clip difference; the direction edit decays like a random one for three blocks, then settles between the two.</figcaption></figure>
-
-<figure><img src="__F6__" alt="Displacement by label, and acceleration probe output on constant-velocity clips">
-<figcaption><b>Fig. 7.</b> Within each set, distance travelled is fixed by the label. The acceleration probe applied to constant-velocity clips predicts 0–12 m/s² in proportion to distance travelled. The paper's datasets have the same structure.</figcaption></figure>
+<h2>Additional checks</h2>
+<ul>
+  <li>Probe type and data size (direction, layer 1, 5-fold CV): ridge 0.87; paper-style gradient probe 0.66, or 0.72 with 10× the epochs. On a 96-clip, 8-direction subset like the paper's: ridge 0.63, gradient probe 0.31 (0.57 with 10× epochs). Low early-layer scores need little data and an under-trained probe. In every setting the rise is complete by layer 6.</li>
+  <li>Held-out target values: with every 4th label value withheld from all probes, steering held-out clips to unseen values is as accurate as to seen values (4.3° vs 4.3°; 0.088 vs 0.088 m/s; 0.23 vs 0.23 m/s² at 10 probes).</li>
+  <li>Persistence of the edit downstream (component along Δ at layer 24): steering edit 0.07–0.10; a real clip-to-clip difference 0.08–0.11; a random edit of equal norm 0.02. The network attenuates offsets in general; it does not single out the steering edit.</li>
+  <li>Displacement confound: within each set, distance travelled is fixed by the label. The acceleration probe applied to constant-velocity clips (true acceleration 0) predicts 6.8 m/s² on average and tracks distance travelled with r = 0.993. The paper's datasets have the same structure.</li>
+  <li>Cross-half generalisation: a direction probe trained on left-half patch tokens scores 0.81 (layer 1), 0.96 (layer 9) and 0.83 (layer 24) on right-half tokens.</li>
+</ul>
+<p class="note">Supplementary figures for these checks are in <code>outputs/figures/report/supp_*.png</code>.</p>
 
 <h2>Limits and next steps</h2>
 <ul>
@@ -100,15 +98,12 @@ footer{margin-top:40px;font-size:13.5px;color:var(--muted);border-top:1px solid 
 uv run python scripts/extract_features.py            # also: --random-init, --size 224
 uv run python scripts/baseline_features.py
 uv run python scripts/probe_layers.py                # Fig. 1
-uv run python scripts/probe_protocol_check.py        # Fig. 2
-uv run python scripts/extract_patch_features.py && uv run python scripts/probe_patches.py   # Fig. 3
-uv run python scripts/steer_heldout.py
-uv run python scripts/run_inlp.py                    # Fig. 4
-uv run python scripts/steer_pooled.py                # Fig. 5
-uv run python scripts/steer_propagate.py --dataset direction   # Fig. 6 (also speed, acceleration)
-uv run python scripts/diag_persistence.py
+uv run python scripts/extract_patch_features.py && uv run python scripts/probe_patches.py
+uv run python scripts/run_inlp.py                    # Fig. 2
+uv run python scripts/steer_pooled.py                # Fig. 3, top
+uv run python scripts/steer_propagate.py --dataset direction   # Fig. 3, bottom (also speed, acceleration)
 uv run python scripts/paper_protocol.py --features vjepa2      # paper protocol
-uv run python scripts/sanity_checks.py               # Fig. 7
+for s in probe_protocol_check steer_heldout diag_persistence sanity_checks; do uv run python scripts/$s.py; done
 uv run python scripts/plot_figures.py && uv run python scripts/build_report.py</pre>
 <p>Repository: <code>7peng/world-mechanics-assessment</code>. Details and every number: <code>docs/notes/part1_findings.md</code>.</p>
 

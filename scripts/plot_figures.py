@@ -1,4 +1,5 @@
-"""Figure suite for the Part 1 report. Outputs outputs/figures/report/f1..f6.png.
+"""Figure suite for the Part 1 report: three main figures (f1_probes, f2_nullspace, f3_steering)
+and supplementary ones (supp_*). Outputs to outputs/figures/report/.
 
 Style: white ground, thin lines, light spines, no grid, direct labels at line ends.
 """
@@ -72,6 +73,9 @@ def save(fig, name):
 # ---------------------------------------------------------------- F1 layer-wise probing
 pl = R("probe_layers.json")
 pp = R("paper_protocol_vjepa2.json")
+patch = R("probe_patches.json")
+patch_layers = patch["layers"]
+patch_med = [float(np.median(patch["per_patch_r2"][str(l)])) for l in patch_layers]
 fig2c = {"direction": (0.22, 0.93), "speed": (0.85, 0.96), "acceleration": (0.78, 0.90)}
 fig, axes = plt.subplots(2, 3, figsize=(11, 5.6))
 X = np.arange(25)
@@ -88,7 +92,11 @@ for j, n in enumerate(VARS):
     a.plot(X[1:], pap, color=DARK, lw=1, ls=(0, (4, 2)))
     a.plot([1, 9], fig2c[n], "o", mfc="white", mec=DARK, ms=6)
     a.set_title(n); a.set_xticks([0, 8, 16, 24])
-    end_labels(a, 24, [(ours[24], "ours", C[n]), (rnd[24], "random init", GRAY), (pap[-1], "paper protocol", DARK)])
+    labels = [(ours[24], "ours, pooled", C[n]), (rnd[24], "random init", GRAY), (pap[-1], "paper protocol", DARK)]
+    if n == "direction":
+        a.plot(patch_layers, patch_med, color=C[n], lw=1.2, ls=(0, (1, 1.5)), marker="o", ms=2.5)
+        labels.append((patch_med[-1], "ours, per-patch median", C[n]))
+    end_labels(a, 24, labels)
     if j == 0:
         a.set_ylabel("test R²")
         a.annotate("paper, Fig. 2c", (1, 0.22), xytext=(8, 0), textcoords="offset points", color=DARK, fontsize=7.5, va="center")
@@ -108,7 +116,7 @@ title(fig, "Linear probes by layer")
 fig.tight_layout()
 save(fig, "f1_probes.png")
 
-# ---------------------------------------------------------------- F2 probe type × data
+# ---------------------------------------------------------------- supplementary: probe type × data
 pc = R("probe_protocol_check.json")
 L = pc["layers"]
 sty = [("ridge_z", C["direction"], "-", "ridge (ours)"), ("gd_paper", DARK, "-", "gradient probe, 100 epochs (paper)"),
@@ -128,9 +136,9 @@ axes[0].set_ylabel("direction R² (5-fold CV)")
 axes[0].annotate("paper, Fig. 2c", (1, 0.22), xytext=(8, 0), textcoords="offset points", color=DARK, fontsize=7.5, va="center")
 title(fig, "Direction decodability depends on probe training and data size")
 fig.tight_layout()
-save(fig, "f2_probe_type.png")
+save(fig, "supp_probe_type.png")
 
-# ---------------------------------------------------------------- F3 nullspace probing
+# ---------------------------------------------------------------- F2 nullspace probing
 inl = R("inlp.json")
 Lm = inl["layer"]
 fig, axes = plt.subplots(1, 4, figsize=(13, 3.2), gridspec_kw={"width_ratios": [1, 1, 1, 1.15]})
@@ -158,13 +166,15 @@ a.set_xticks([0, 8, 16, 24]); a.set_title("dims removed until val R² < 0.3"); a
 a.text(1.5, 162, "160 / 80 = never within budget", fontsize=7.5, color=GRAY)
 title(fig, "Iterative nullspace probing")
 fig.tight_layout()
-save(fig, "f3_nullspace.png")
+save(fig, "f2_nullspace.png")
 
-# ---------------------------------------------------------------- F4 steering, same-layer read-out
+# ---------------------------------------------------------------- F3 steering: same-layer and propagated
 sp = R("steer_pooled.json")
 N = sp["n_list"]
-fig, axes = plt.subplots(1, 3, figsize=(11, 3.3))
-for a, n in zip(axes, VARS):
+pers = R("diag_persistence.json")
+fig, axes = plt.subplots(2, 3, figsize=(11, 5.8))
+for j, n in enumerate(VARS):
+    a = axes[0, j]
     s = {"strict": [x["to_target"]["strict"] for x in sp[n]["steer"]],
          "truth": [x["to_truth"]["strict"] for x in sp[n]["steer"]],
          "random": [x["to_target"]["strict"] for x in sp[n]["random"]]}
@@ -183,32 +193,32 @@ for a, n in zip(axes, VARS):
         a.text(28, 40, "○  paper, Fig. 24", color=DARK, fontsize=7.5)
         a.text(28, 31, "- -  paper protocol at layer 8\n      (3 splits; band = range)", color=DARK, fontsize=7.5, va="top")
     a.set_xticks([1, 3, 10, 30, 100]); a.set_xticklabels(["1", "3", "10", "30", "100"])
-    a.set_title(f"{n}, layer {sp['layer']}"); a.set_xlabel("probes in steering subspace"); a.set_ylabel(UNIT[n])
-title(fig, "Subspace steering, read out at the steered layer")
-fig.tight_layout()
-save(fig, "f4_steer.png")
-
-# ---------------------------------------------------------------- F5 propagated steering + persistence
-pers = R("diag_persistence.json")
-fig, axes = plt.subplots(2, 3, figsize=(11, 5.6))
-for j, n in enumerate(VARS):
-    s = R(f"steer_propagate_{n}.json")
-    c = s["conditions"]
-    a = axes[0, j]
-    a.set_xlim(12, 27.5); a.set_ylim(0, YMAX_ERR[n])
+    a.set_title(f"{n}: read out at layer {sp['layer']}"); a.set_ylabel(UNIT[n])
+    if j == 1:
+        a.set_xlabel("probes in steering subspace")
+    b = axes[1, j]
+    sprop = R(f"steer_propagate_{n}.json")
+    c = sprop["conditions"]
+    b.set_xlim(12, 27.5); b.set_ylim(0, YMAX_ERR[n])
     items = []
     for Nn, alpha in ((1, 0.35), (5, 0.6), (20, 1.0)):
         y = np.mean([x["to_target"] for x in c if x["kind"] == "steer" and x["N"] == Nn], 0)
-        a.plot(s["layers"], y, color=C[n], alpha=alpha)
+        b.plot(sprop["layers"], y, color=C[n], alpha=alpha)
         items.append((y[-1], f"N = {Nn}", C[n]))
     rnd = np.mean([x["to_target"] for x in c if x["kind"] == "random"], 0)
-    a.plot(s["layers"], rnd, color=GRAY, lw=1.2)
-    a.plot(s["layers"], c[0]["to_truth"], color=DARK, lw=1, ls=(0, (1, 1.5)))
-    end_labels(a, 24, items + [(rnd[-1], "random edit", GRAY), (c[0]["to_truth"][-1], "unsteered floor", DARK)])
-    a.set_xticks([12, 16, 20, 24]); a.set_title(n); a.set_ylabel(UNIT[n] + " to target")
+    b.plot(sprop["layers"], rnd, color=GRAY, lw=1.2)
+    b.plot(sprop["layers"], c[0]["to_truth"], color=DARK, lw=1, ls=(0, (1, 1.5)))
+    end_labels(b, 24, items + [(rnd[-1], "random edit", GRAY), (c[0]["to_truth"][-1], "unsteered floor", DARK)])
+    b.set_xticks([12, 16, 20, 24]); b.set_title(f"{n}: read out downstream"); b.set_ylabel(UNIT[n] + " to target")
     if j == 1:
-        a.set_xlabel("read-out layer (edit applied at layer 12)")
-    b = axes[1, j]
+        b.set_xlabel("read-out layer (edit applied at layer 12)")
+title(fig, "Multi-probe subspace steering")
+fig.tight_layout()
+save(fig, "f3_steering.png")
+
+# ---------------------------------------------------------------- supplementary: persistence of the edit
+fig, axes = plt.subplots(1, 3, figsize=(11, 3.2))
+for b, n in zip(axes, VARS):
     P = pers[n]
     b.set_xlim(12, 27.5); b.set_ylim(0, 1.03)
     b.plot(P["layers"], P["retained_frac"], color=C[n], marker="o", ms=2.5)
@@ -216,14 +226,13 @@ for j, n in enumerate(VARS):
     b.plot(P["layers"], P["retained_frac_random"], color=GRAY, lw=1.2)
     end_labels(b, 24, [(P["retained_frac"][-1], "steering edit", C[n]), (P["retained_frac_natural"][-1], "clip-to-clip difference", DARK),
                        (P["retained_frac_random"][-1], "random edit", GRAY)])
-    b.set_xticks([12, 16, 20, 24]); b.set_ylabel("fraction of Δ retained")
-    if j == 1:
-        b.set_xlabel("layer")
-title(fig, "Steering propagated through the remaining blocks")
+    b.set_xticks([12, 16, 20, 24]); b.set_title(n); b.set_xlabel("layer")
+axes[0].set_ylabel("fraction of Δ retained along Δ")
+title(fig, "How much of an injected shift survives")
 fig.tight_layout()
-save(fig, "f5_propagate.png")
+save(fig, "supp_persistence.png")
 
-# ---------------------------------------------------------------- F6 displacement confound
+# ---------------------------------------------------------------- supplementary: displacement confound
 sc = R("sanity_checks.json")
 Lc = sc["confound"]["layer"]
 da, ds = load_manifest("acceleration"), load_manifest("speed")
@@ -253,5 +262,5 @@ b.set_title(f"acceleration probe on clips with zero acceleration (layer {Lc})")
 b.text(3, 12.6, f"true value 0 for every clip\nr = {sc['confound']['corr_with_displacement']:.3f} with displacement", fontsize=7.5, color=DARK)
 title(fig, "The acceleration probe reads displacement")
 fig.tight_layout()
-save(fig, "f6_confound.png")
+save(fig, "supp_confound.png")
 print("wrote", sorted(p.name for p in FIG.glob("*.png")))
