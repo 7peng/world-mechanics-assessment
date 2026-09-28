@@ -1,7 +1,8 @@
 """Figure suite for the Part 1 report: three main figures (f1_probes, f2_nullspace, f3_steering)
 and supplementary ones (supp_*). Outputs to outputs/figures/report/.
 
-Style: white ground, thin lines, light spines, no grid, direct labels at line ends.
+Style: light panel ground with white grid, no spines, bold centred titles, markers on every point,
+colours encode series (not variable), legend to the right of each row.
 """
 import json
 import sys
@@ -12,6 +13,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import numpy as np
 
 from src.data import OUT, load_manifest
@@ -22,20 +24,25 @@ R = lambda f: json.loads((OUT / "results" / f).read_text())
 FIG = OUT / "figures" / "report"
 FIG.mkdir(parents=True, exist_ok=True)
 VARS = ["direction", "speed", "acceleration"]
-C = {"direction": "#3b74c4", "speed": "#e0743f", "acceleration": "#2f9b78"}
-DARK, GRAY, LIGHT = "#333333", "#8c8c8c", "#c8c8c8"
+BLUE, ORANGE, GREEN, GRAY, DARK = "#1f77b4", "#ff7f0e", "#2ca02c", "#7f7f7f", "#333333"
+C = {"direction": BLUE, "speed": ORANGE, "acceleration": GREEN}
+LIGHT = "#c8c8c8"
 UNIT = {"direction": "circular MAE (°)", "speed": "MAE (m/s)", "acceleration": "MAE (m/s²)"}
 YMAX_ERR = {"direction": 100, "speed": 1.5, "acceleration": 4}
 
 plt.rcParams.update({
-    "figure.facecolor": "white", "axes.facecolor": "white", "savefig.facecolor": "white",
-    "font.size": 9, "axes.titlesize": 10, "axes.titlelocation": "left",
-    "axes.labelsize": 8.5, "xtick.labelsize": 8, "ytick.labelsize": 8,
-    "axes.edgecolor": LIGHT, "axes.linewidth": 0.8, "xtick.color": GRAY, "ytick.color": GRAY,
-    "axes.labelcolor": DARK, "text.color": DARK, "xtick.major.size": 3, "ytick.major.size": 3,
-    "axes.spines.top": False, "axes.spines.right": False, "axes.grid": False,
-    "lines.linewidth": 1.5, "lines.markersize": 3.5, "legend.frameon": False, "legend.fontsize": 8,
+    "figure.facecolor": "white", "savefig.facecolor": "white",
+    "axes.facecolor": "#EAEAF2", "axes.edgecolor": "white", "axes.linewidth": 0,
+    "axes.grid": True, "grid.color": "white", "grid.linewidth": 1.0,
+    "axes.spines.top": False, "axes.spines.right": False, "axes.spines.left": False, "axes.spines.bottom": False,
+    "xtick.major.size": 0, "ytick.major.size": 0, "xtick.color": "#555555", "ytick.color": "#555555",
+    "axes.labelcolor": "#444444", "text.color": DARK,
+    "font.size": 9, "axes.titlesize": 11, "axes.titleweight": "bold", "axes.titlelocation": "center",
+    "axes.labelsize": 9, "xtick.labelsize": 8.5, "ytick.labelsize": 8.5,
+    "lines.linewidth": 1.6, "lines.markersize": 4,
+    "legend.frameon": False, "legend.fontsize": 8.5, "legend.handlelength": 2.2,
 })
+MK = dict(marker="o", ms=4)
 
 
 def end_labels(ax, x, items, gap=0.06):
@@ -44,9 +51,9 @@ def end_labels(ax, x, items, gap=0.06):
     g = gap * (hi - lo)
     items = sorted(items, key=lambda t: t[0])
     pos = []
-    for y, _, _ in items:                       # push up
+    for y, _, _ in items:
         pos.append(y if not pos else max(y, pos[-1] + g))
-    pos[-1] = min(pos[-1], hi - g / 2)          # then push down from the top edge
+    pos[-1] = min(pos[-1], hi - g / 2)
     for i in range(len(pos) - 2, -1, -1):
         pos[i] = min(pos[i], pos[i + 1] - g)
     for (y, text, color), p in zip(items, pos):
@@ -57,18 +64,26 @@ def hline(ax, y, text, color=GRAY, ls=(0, (2, 2))):
     lo, hi = ax.get_ylim()
     if not lo <= y <= hi:
         return
-    ax.axhline(y, color=color, lw=0.9, ls=ls)
+    ax.axhline(y, color=color, lw=1, ls=ls)
     ax.text(ax.get_xlim()[1], y, " " + text, color=color, fontsize=7.5, va="center")
 
 
+def row_legend(ax, handles):
+    """Legend to the right of the row's last panel."""
+    ax.legend(handles=handles, loc="center left", bbox_to_anchor=(1.04, 0.5), borderaxespad=0)
+
+
 def title(fig, text):
-    fig.suptitle(text, x=0.01, ha="left", fontsize=11)
+    fig.suptitle(text, x=0.01, ha="left", fontsize=12, fontweight="bold")
 
 
 def save(fig, name):
-    fig.savefig(FIG / name, dpi=150, bbox_inches="tight", pad_inches=0.08)
+    fig.savefig(FIG / name, dpi=150, bbox_inches="tight", pad_inches=0.1)
     plt.close(fig)
 
+
+H = lambda color, label, ls="-", marker="o", mfc=None, lw=1.6: Line2D([], [], color=color, ls=ls, marker=marker, ms=4, lw=lw,
+                                                                       mfc=color if mfc is None else mfc, label=label)
 
 # ---------------------------------------------------------------- F1 layer-wise probing
 pl = R("probe_layers.json")
@@ -77,44 +92,113 @@ patch = R("probe_patches.json")
 patch_layers = patch["layers"]
 patch_med = [float(np.median(patch["per_patch_r2"][str(l)])) for l in patch_layers]
 fig2c = {"direction": (0.22, 0.93), "speed": (0.85, 0.96), "acceleration": (0.78, 0.90)}
-fig, axes = plt.subplots(2, 3, figsize=(11, 5.6))
+fig, axes = plt.subplots(2, 3, figsize=(11.5, 6))
 X = np.arange(25)
 for j, n in enumerate(VARS):
     r = pl[n]["raw"]
     k = "circ_mae_deg" if n == "direction" else "mae"
-    ours = [m["r2"] for m in r["vjepa2"]]
-    rnd = [m["r2"] for m in r["vjepa2_random"]]
-    pap = pp[n]["layerwise"]["exact_mean"]
     a = axes[0, j]
-    a.set_xlim(0, 27.5); a.set_ylim(0, 1.03)
-    a.plot(X, ours, color=C[n])
-    a.plot(X, rnd, color=GRAY, lw=1.2)
-    a.plot(X[1:], pap, color=DARK, lw=1, ls=(0, (4, 2)))
-    a.plot([1, 9], fig2c[n], "o", mfc="white", mec=DARK, ms=6)
-    a.set_title(n); a.set_xticks([0, 8, 16, 24])
-    labels = [(ours[24], "ours, pooled", C[n]), (rnd[24], "random init", GRAY), (pap[-1], "paper protocol", DARK)]
+    a.plot(X, [m["r2"] for m in r["vjepa2"]], color=BLUE, **MK)
+    a.plot(X[1:], pp[n]["layerwise"]["exact_mean"], color=ORANGE, **MK)
+    a.plot(X, [m["r2"] for m in r["vjepa2_random"]], color=GRAY, **MK)
     if n == "direction":
-        a.plot(patch_layers, patch_med, color=C[n], lw=1.2, ls=(0, (1, 1.5)), marker="o", ms=2.5)
-        labels.append((patch_med[-1], "ours, per-patch median", C[n]))
-    end_labels(a, 24, labels)
-    if j == 0:
-        a.set_ylabel("test R²")
-        a.annotate("paper, Fig. 2c", (1, 0.22), xytext=(8, 0), textcoords="offset points", color=DARK, fontsize=7.5, va="center")
+        a.plot(patch_layers, patch_med, color=BLUE, ls=(0, (1, 1.5)), **MK, mfc="white")
+    a.plot([1, 9], fig2c[n], "o", mfc="white", mec=DARK, ms=6, mew=1.3)
+    a.set_xlim(-0.5, 24.5); a.set_ylim(0, 1.03); a.set_title(n); a.set_xticks([0, 4, 8, 12, 16, 20, 24])
     b = axes[1, j]
-    e_ours = [m[k] for m in r["vjepa2"]]
-    e_rnd = [m[k] for m in r["vjepa2_random"]]
-    b.set_xlim(0, 27.5); b.set_ylim(0, {"direction": 40, "speed": 0.4, "acceleration": 1.0}[n])
-    b.plot(X[1:], e_ours[1:], color=C[n])
-    b.plot(X[1:], e_rnd[1:], color=GRAY, lw=1.2)
-    b.set_xticks([0, 8, 16, 24]); b.set_ylabel(UNIT[n])
-    hline(b, r["centroid_poly2"][k], "centroid baseline")
-    hline(b, r["pixels"][k], "pixel baseline", ls=(0, (1, 2)))
-    end_labels(b, 24, [(e_ours[24], "ours", C[n]), (e_rnd[24], "random init", GRAY)])
+    b.plot(X[1:], [m[k] for m in r["vjepa2"]][1:], color=BLUE, **MK)
+    b.plot(X[1:], [m[k] for m in r["vjepa2_random"]][1:], color=GRAY, **MK)
+    b.set_xlim(-0.5, 24.5); b.set_ylim(0, {"direction": 40, "speed": 0.4, "acceleration": 1.0}[n])
+    b.axhline(r["centroid_poly2"][k], color=GREEN, lw=1.2, ls=(0, (4, 2)))
+    if r["pixels"][k] <= b.get_ylim()[1]:
+        b.axhline(r["pixels"][k], color=GREEN, lw=1.2, ls=(0, (1, 2)))
+    b.set_xticks([0, 4, 8, 12, 16, 20, 24]); b.set_ylabel(UNIT[n]); b.set_title(n)
     if j == 1:
         b.set_xlabel("layer (0 = patch embedding; paper index = layer − 1)")
-title(fig, "Linear probes by layer")
+axes[0, 0].set_ylabel("test R²")
+row_legend(axes[0, 2], [H(BLUE, "ours (ridge, pooled)"), H(BLUE, "ours, per-patch median", ls=(0, (1, 1.5)), mfc="white"),
+                        H(ORANGE, "paper protocol, our data"), H(GRAY, "random-init encoder"),
+                        H(DARK, "paper, Fig. 2c (approx.)", ls="none", mfc="white")])
+row_legend(axes[1, 2], [H(BLUE, "ours (ridge, pooled)"), H(GRAY, "random-init encoder"),
+                        H(GREEN, "centroid-trajectory baseline", ls=(0, (4, 2)), marker="none"),
+                        H(GREEN, "pixel baseline (off-scale for speed, accel.)", ls=(0, (1, 2)), marker="none")])
+title(fig, "Layer-wise linear probing")
 fig.tight_layout()
 save(fig, "f1_probes.png")
+
+# ---------------------------------------------------------------- F2 nullspace probing
+inl = R("inlp.json")
+Lm = inl["layer"]
+fig, axes = plt.subplots(1, 4, figsize=(13.5, 3.4), gridspec_kw={"width_ratios": [1, 1, 1, 1.05]})
+for a, n in zip(axes[:3], VARS):
+    kk = 2 if n == "direction" else 1
+    m = {src: [v["r2"] for v in inl["main"][n][src]["test"]] for src in ("probe", "random", "pca")}
+    xr = np.arange(len(m["probe"])) * kk
+    a.plot(xr, m["probe"], color=BLUE, lw=1.6)
+    a.plot(xr, m["random"], color=GRAY, lw=1.6)
+    a.plot(xr, m["pca"], color=ORANGE, lw=1.6)
+    a.set_ylim(-0.05, 1.03); a.set_xlim(0, xr[-1]); a.set_title(f"{n}, layer {Lm}"); a.set_xlabel("dimensions removed")
+axes[0].set_ylabel("test R² of next probe")
+a = axes[3]
+for n in VARS:
+    kk = 2 if n == "direction" else 1
+    y = [kk * (80 if x is None else x) for x in inl["sweep"][n]["n_to_0.3"]]
+    a.plot(range(25), y, color=C[n], **MK, label=n)
+a.set_xlim(-0.5, 24.5); a.set_ylim(0, 170); a.set_xticks([0, 4, 8, 12, 16, 20, 24])
+a.set_title("dims removed until val R² < 0.3"); a.set_xlabel("layer")
+a.text(4.5, 160, "at 160 / 80: never within budget", fontsize=7.5, color="#555555", va="center")
+leg1 = a.legend(handles=[H(BLUE, "probe directions (INLP)", marker="none"), H(GRAY, "random directions", marker="none"),
+                         H(ORANGE, "top principal components", marker="none")],
+                loc="upper left", bbox_to_anchor=(1.04, 1.0), borderaxespad=0, title="left panels", title_fontsize=8.5)
+a.add_artist(leg1)
+a.legend(handles=[H(C[n], n) for n in VARS], loc="lower left", bbox_to_anchor=(1.04, 0.0), borderaxespad=0,
+         title="right panel", title_fontsize=8.5)
+title(fig, "Iterative nullspace probing")
+fig.tight_layout()
+save(fig, "f2_nullspace.png")
+
+# ---------------------------------------------------------------- F3 steering: same-layer and propagated
+sp = R("steer_pooled.json")
+N = sp["n_list"]
+pers = R("diag_persistence.json")
+fig, axes = plt.subplots(2, 3, figsize=(11.5, 6))
+for j, n in enumerate(VARS):
+    a = axes[0, j]
+    a.set_xscale("log"); a.set_xlim(0.85, 120); a.set_ylim(0, YMAX_ERR[n])
+    a.plot(N, [x["to_target"]["strict"] for x in sp[n]["steer"]], color=BLUE, **MK)
+    a.plot(N, [x["to_truth"]["strict"] for x in sp[n]["steer"]], color=BLUE, ls=(0, (1, 1.5)), **MK, mfc="white")
+    a.plot(N, [x["to_target"]["strict"] for x in sp[n]["random"]], color=GRAY, **MK)
+    if n == "direction":
+        st = pp["direction"]["steer"]["block_output"]["runs"]
+        Np = [x["N"] for x in st[0]["steer"]]
+        tt = np.array([[x["to_target"] for x in r["steer"]] for r in st])
+        a.plot(Np, tt.mean(0), color=ORANGE, **MK)
+        a.fill_between(Np, tt.min(0), tt.max(0), color=ORANGE, alpha=0.15, lw=0)
+        a.plot([1, 2, 3, 5, 10, 15, 20], [77, 66, 61, 51, 24, 14, 11.9], "o", mfc="white", mec=DARK, ms=6, mew=1.3)
+    a.set_xticks([1, 3, 10, 30, 100]); a.set_xticklabels(["1", "3", "10", "30", "100"]); a.minorticks_off()
+    a.set_title(n); a.set_ylabel(UNIT[n] + " to target")
+    if j == 1:
+        a.set_xlabel(f"probes in steering subspace  (read out at layer {sp['layer']})")
+    b = axes[1, j]
+    sprop = R(f"steer_propagate_{n}.json")
+    c = sprop["conditions"]
+    b.set_xlim(11.6, 24.4); b.set_ylim(0, YMAX_ERR[n])
+    for Nn, alpha in ((1, 0.35), (5, 0.6), (20, 1.0)):
+        y = np.mean([x["to_target"] for x in c if x["kind"] == "steer" and x["N"] == Nn], 0)
+        b.plot(sprop["layers"], y, color=BLUE, alpha=alpha, **MK)
+    b.plot(sprop["layers"], np.mean([x["to_target"] for x in c if x["kind"] == "random"], 0), color=GRAY, **MK)
+    b.plot(sprop["layers"], c[0]["to_truth"], color=DARK, ls=(0, (1, 1.5)), lw=1.2)
+    b.set_xticks([12, 14, 16, 18, 20, 22, 24]); b.set_title(n); b.set_ylabel(UNIT[n] + " to target")
+    if j == 1:
+        b.set_xlabel("read-out layer  (edit applied at layer 12, read out downstream)")
+row_legend(axes[0, 2], [H(BLUE, "steered → target"), H(BLUE, "steered → original label", ls=(0, (1, 1.5)), mfc="white"),
+                        H(GRAY, "random edit, same norm → target"), H(ORANGE, "paper protocol, layer 8 (3 splits; band = range)"),
+                        H(DARK, "paper, Fig. 24 (approx.)", ls="none", mfc="white")])
+row_legend(axes[1, 2], [Line2D([], [], color=BLUE, alpha=al, marker="o", ms=4, label=f"N = {Nn} probes") for Nn, al in ((1, 0.35), (5, 0.6), (20, 1.0))]
+           + [H(GRAY, "random edit, same norm"), H(DARK, "unsteered probe error (floor)", ls=(0, (1, 1.5)), marker="none")])
+title(fig, "Multi-probe subspace steering")
+fig.tight_layout()
+save(fig, "f3_steering.png")
 
 # ---------------------------------------------------------------- supplementary: probe type × data
 pc = R("probe_protocol_check.json")
@@ -137,84 +221,6 @@ axes[0].annotate("paper, Fig. 2c", (1, 0.22), xytext=(8, 0), textcoords="offset 
 title(fig, "Direction decodability depends on probe training and data size")
 fig.tight_layout()
 save(fig, "supp_probe_type.png")
-
-# ---------------------------------------------------------------- F2 nullspace probing
-inl = R("inlp.json")
-Lm = inl["layer"]
-fig, axes = plt.subplots(1, 4, figsize=(13, 3.2), gridspec_kw={"width_ratios": [1, 1, 1, 1.15]})
-for a, n in zip(axes[:3], VARS):
-    k = 2 if n == "direction" else 1
-    m = {src: [v["r2"] for v in inl["main"][n][src]["test"]] for src in ("probe", "random", "pca")}
-    xr = np.arange(len(m["probe"])) * k
-    a.set_ylim(-0.05, 1.03); a.set_xlim(0, xr[-1] * 1.4)
-    a.plot(xr, m["probe"], color=C[n])
-    a.plot(xr, m["random"], color=GRAY, lw=1.2)
-    a.plot(xr, m["pca"], color=DARK, lw=1, ls=(0, (4, 2)))
-    a.set_title(f"{n}, layer {Lm}"); a.set_xlabel("dimensions removed")
-    end_labels(a, xr[-1], [(m["probe"][-1], "probe directions", C[n]), (m["random"][-1], "random directions", GRAY), (m["pca"][-1], "top PCs", DARK)])
-axes[0].set_ylabel("test R² of next probe")
-a = axes[3]
-a.set_xlim(0, 30); a.set_ylim(0, 170)
-items = []
-for n in VARS:
-    k = 2 if n == "direction" else 1
-    y = [k * (80 if x is None else x) for x in inl["sweep"][n]["n_to_0.3"]]
-    a.plot(range(25), y, color=C[n], marker="o", ms=2.5)
-    items.append((y[-1], n, C[n]))
-end_labels(a, 24, items)
-a.set_xticks([0, 8, 16, 24]); a.set_title("dims removed until val R² < 0.3"); a.set_xlabel("layer")
-a.text(1.5, 162, "160 / 80 = never within budget", fontsize=7.5, color=GRAY)
-title(fig, "Iterative nullspace probing")
-fig.tight_layout()
-save(fig, "f2_nullspace.png")
-
-# ---------------------------------------------------------------- F3 steering: same-layer and propagated
-sp = R("steer_pooled.json")
-N = sp["n_list"]
-pers = R("diag_persistence.json")
-fig, axes = plt.subplots(2, 3, figsize=(11, 5.8))
-for j, n in enumerate(VARS):
-    a = axes[0, j]
-    s = {"strict": [x["to_target"]["strict"] for x in sp[n]["steer"]],
-         "truth": [x["to_truth"]["strict"] for x in sp[n]["steer"]],
-         "random": [x["to_target"]["strict"] for x in sp[n]["random"]]}
-    a.set_xscale("log"); a.set_xlim(0.9, 300); a.set_ylim(0, YMAX_ERR[n])
-    a.plot(N, s["strict"], color=C[n], marker="o", ms=2.5)
-    a.plot(N, s["random"], color=GRAY, lw=1.2)
-    a.plot(N, s["truth"], color=C[n], lw=1, ls=(0, (1, 1.5)))
-    end_labels(a, N[-1], [(s["strict"][-1], "to target", C[n]), (s["random"][-1], "random edit", GRAY), (s["truth"][-1], "to original label", C[n])])
-    if n == "direction":
-        st = pp["direction"]["steer"]["block_output"]["runs"]
-        Np = [x["N"] for x in st[0]["steer"]]
-        tt = np.array([[x["to_target"] for x in r["steer"]] for r in st])
-        a.plot(Np, tt.mean(0), color=DARK, lw=1, ls=(0, (4, 2)), marker="o", ms=2.5)
-        a.fill_between(Np, tt.min(0), tt.max(0), color=DARK, alpha=0.08, lw=0)
-        a.plot([1, 2, 3, 5, 10, 15, 20], [77, 66, 61, 51, 24, 14, 11.9], "o", mfc="white", mec=DARK, ms=6)
-        a.text(28, 40, "○  paper, Fig. 24", color=DARK, fontsize=7.5)
-        a.text(28, 31, "- -  paper protocol at layer 8\n      (3 splits; band = range)", color=DARK, fontsize=7.5, va="top")
-    a.set_xticks([1, 3, 10, 30, 100]); a.set_xticklabels(["1", "3", "10", "30", "100"])
-    a.set_title(f"{n}: read out at layer {sp['layer']}"); a.set_ylabel(UNIT[n])
-    if j == 1:
-        a.set_xlabel("probes in steering subspace")
-    b = axes[1, j]
-    sprop = R(f"steer_propagate_{n}.json")
-    c = sprop["conditions"]
-    b.set_xlim(12, 27.5); b.set_ylim(0, YMAX_ERR[n])
-    items = []
-    for Nn, alpha in ((1, 0.35), (5, 0.6), (20, 1.0)):
-        y = np.mean([x["to_target"] for x in c if x["kind"] == "steer" and x["N"] == Nn], 0)
-        b.plot(sprop["layers"], y, color=C[n], alpha=alpha)
-        items.append((y[-1], f"N = {Nn}", C[n]))
-    rnd = np.mean([x["to_target"] for x in c if x["kind"] == "random"], 0)
-    b.plot(sprop["layers"], rnd, color=GRAY, lw=1.2)
-    b.plot(sprop["layers"], c[0]["to_truth"], color=DARK, lw=1, ls=(0, (1, 1.5)))
-    end_labels(b, 24, items + [(rnd[-1], "random edit", GRAY), (c[0]["to_truth"][-1], "unsteered floor", DARK)])
-    b.set_xticks([12, 16, 20, 24]); b.set_title(f"{n}: read out downstream"); b.set_ylabel(UNIT[n] + " to target")
-    if j == 1:
-        b.set_xlabel("read-out layer (edit applied at layer 12)")
-title(fig, "Multi-probe subspace steering")
-fig.tight_layout()
-save(fig, "f3_steering.png")
 
 # ---------------------------------------------------------------- supplementary: persistence of the edit
 fig, axes = plt.subplots(1, 3, figsize=(11, 3.2))
