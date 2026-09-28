@@ -1,0 +1,199 @@
+<title>V-JEPA Kinematics Talk</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400&display=swap">
+<style>
+:root{--bg:#f4f4f6;--card:#ffffff;--ink:#1d1f24;--ink2:#555b66;--muted:#8a909c;--rule:#e2e4e9;--accent:#1f77b4;color-scheme:light}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#15171b;--card:#1e2126;--ink:#e9ebef;--ink2:#b4b9c3;--muted:#858b96;--rule:#2d3139;--accent:#6aaee0;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#15171b;--card:#1e2126;--ink:#e9ebef;--ink2:#b4b9c3;--muted:#858b96;--rule:#2d3139;--accent:#6aaee0;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:"Source Sans 3",system-ui,sans-serif;font-size:17px;line-height:1.5;padding-inline:16px;padding-block:28px 60px;margin:0}
+main{max-width:980px;margin:0 auto;display:grid;gap:22px}
+header{padding:4px 4px 8px}
+header h1{font-size:30px;margin:0 0 6px;font-weight:600;letter-spacing:-.01em}
+header p{margin:0;color:var(--ink2);max-width:70ch}
+.slide{background:var(--card);border:1px solid var(--rule);border-radius:10px;padding:22px 26px 20px}
+.num{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--muted)}
+.slide h2{font-size:23px;font-weight:600;margin:2px 0 10px;text-wrap:balance}
+.slide ul{margin:0 0 6px;padding-left:20px}
+.slide li{margin:0 0 5px;max-width:78ch}
+.slide img{display:block;width:100%;height:auto;margin:12px 0 4px;border-radius:4px;background:#fff}
+.take{margin-top:10px;padding-top:10px;border-top:1px solid var(--rule);font-weight:600}
+.note{font-size:14px;color:var(--muted);margin-top:6px}
+.tw{overflow-x:auto;margin:10px 0 4px}
+table{border-collapse:collapse;font-size:15px;width:100%}
+th,td{padding:5px 10px 5px 0;border-bottom:1px solid var(--rule);text-align:left}
+th{color:var(--ink2);font-weight:600;font-size:14px}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+</style>
+<main>
+<header>
+<h1>Kinematics inside V-JEPA 2</h1>
+<p>Talk content, one card per slide. Each card: title, points, figure, and the takeaway line. Numbers are on held-out test clips unless stated.</p>
+</header>
+
+<section class="slide"><div class="num">1</div>
+<h2>Question</h2>
+<ul>
+<li>Does a frozen video world model (V-JEPA 2 ViT-L) represent the direction, speed and acceleration of a moving object?</li>
+<li>Where, in how many dimensions, and can we steer it?</li>
+<li>Part 1: reproduce Joseph et al. (probing, nullspace probing, subspace steering). Part 2: manifold (spline) steering after Goodfire.</li>
+</ul>
+<div class="take">Main result: the representation is easy to read and hard to control; manifold geometry matters for the circular variable.</div>
+</section>
+
+<section class="slide"><div class="num">2</div>
+<h2>Setup</h2>
+<ul>
+<li>Data: synthetic clips, one disk, 16 frames at 24 fps. 1,500 direction clips (64 angles), 1,536 speed (0.25–4 m/s), 1,536 acceleration (0.25–10 m/s²).</li>
+<li>Model: <code>vjepa2-vitl-fpc64-256</code>, frozen. Features: residual stream after each of 24 blocks, averaged over tokens.</li>
+<li>Splits 60/20/20 by label value. Probes and subspaces fit on train, hyper-parameters on val, numbers on test.</li>
+<li>Labels checked against the disk's measured trajectory (32 px/m, direction within 1–2°).</li>
+</ul>
+</section>
+
+<section class="slide"><div class="num">3</div>
+<h2>Probing: all three variables are linearly readable from the first block</h2>
+<img src="__f1_probes__" alt="Probe R² and error by layer">
+<ul>
+<li>R² at layer 1: 0.85 direction, 0.98 speed, 0.98 acceleration. A randomly initialised encoder gets 0.83 / 0.93 / 0.91.</li>
+<li>Pretraining shows in the error: direction 12° at layer 1 to 3° from layer 13; the random encoder stays at 11°.</li>
+<li>Single spatial patches decode direction from layer 6 (median R² 0.95).</li>
+<li>No step at the paper's layer 8. Their low early scores (0.22) appear here only with little data and an under-trained gradient probe (0.31 on 96 clips vs 0.63 for ridge).</li>
+</ul>
+<div class="take">Readability says little about pretraining on these clips; one attention block over the tokens already exposes the motion.</div>
+</section>
+
+<section class="slide"><div class="num">4</div>
+<h2>The acceleration probe reads displacement</h2>
+<img src="__supp_confound__" alt="Displacement by label and acceleration probe on zero-acceleration clips">
+<ul>
+<li>Within each dataset the distance travelled is fixed by the label.</li>
+<li>Applied to constant-velocity clips (true acceleration 0), the acceleration probe predicts 6.8 m/s² on average and tracks distance with r = 0.993.</li>
+<li>The paper's datasets are built the same way.</li>
+</ul>
+<div class="take">"Acceleration is represented" is not established by this probe.</div>
+</section>
+
+<section class="slide"><div class="num">5</div>
+<h2>Nullspace probing: tens of dimensions per variable</h2>
+<img src="__f2_nullspace__" alt="Nullspace probing curves and dimensions by layer">
+<ul>
+<li>At layer 12, R² falls below 0.3 after removing 58 (direction), 51 (speed), 48 (acceleration) dimensions.</li>
+<li>Removing random directions does nothing; removing the top 4–13 principal components removes everything.</li>
+<li>Paper protocol at its layer 8: median 60 direction probes (120 dims), 44 speed. Paper reports ≈44 and ≈28.</li>
+<li>Redundancy drops sharply between layers 7 and 8.</li>
+</ul>
+</section>
+
+<section class="slide"><div class="num">6</div>
+<h2>The paper's sawtooth is a logging artefact, not a sine–cosine code</h2>
+<img src="__supp_sawtooth_mech__" alt="Sawtooth reproduction under protocol variants">
+<ul>
+<li>After a projection, the next probe can only see less information, so its best possible score cannot go up. A low probe followed by a high one means the low one failed to fit.</li>
+<li>With the paper's optimiser, curves are jagged; a ridge probe on the same data is monotone.</li>
+<li>Logging each probe twice (before and after removing its own directions) reproduces the exact period-2 pattern.</li>
+<li>The paper's explanation needs one direction removed per step; its procedure removes both sin and cos at once.</li>
+</ul>
+</section>
+
+<section class="slide"><div class="num">7</div>
+<h2>Subspace steering works at the edited layer, then fades</h2>
+<img src="__f3_steering__" alt="Subspace steering, same-layer and downstream read-out">
+<ul>
+<li>Replace the activation's coordinates in the span of N probes so they read the target. With 10 probes the error to target reaches the probe's own error (4°).</li>
+<li>Paper protocol: 8.4° at 20 probes (range 3.5–14° over splits); the paper reports 11.9°.</li>
+<li>Read out at later layers, the edit is gone within 3 blocks: 4° → 25° → 45° → 73°, 85° at layer 24 (random edit: 90°).</li>
+</ul>
+<div class="take">Reading the same layer you edited is close to circular. This motivated the behavior test.</div>
+</section>
+
+<section class="slide"><div class="num">8</div>
+<h2>Manifolds: direction is a ring, speed and acceleration are curves</h2>
+<img src="__f4_manifolds__" alt="Manifolds in PCA space">
+<ul>
+<li>PCA to 64 dims; one centroid per label value; a curve through them parameterised by the label (periodic for direction).</li>
+<li>Curve basis chosen on val: 4 harmonics for direction, 1–2 knots otherwise. The paper's interpolating cubic chases noise with 14 clips per value.</li>
+<li>The ring is found without labels: the angle in the top-2 PCs of the centroids matches θ with r = 0.997.</li>
+</ul>
+</section>
+
+<section class="slide"><div class="num">9</div>
+<h2>Spline steering at the edited layer: same accuracy, large side effect</h2>
+<img src="__f5_manifold_steering__" alt="Spline vs subspace steering at the edited layer">
+<ul>
+<li>Both methods put 98–100% of clips on target, for seen and unseen target values.</li>
+<li>Outside the fitted range the spline drops to ~50%; subspace steering stays at 99%.</li>
+<li>Steering speed with the spline sets direction to chance (10% intact vs 94%): the paper's operation overwrites the whole top-64 PCA subspace, which also carries direction.</li>
+</ul>
+</section>
+
+<section class="slide"><div class="num">10</div>
+<h2>Behavior test: judge steering by the model's own forecast</h2>
+<ul>
+<li>Behavior = the predictor's forecast of frames 9–16 from frames 1–8. Read out with a probe fit on unsteered forecasts only (94% / 97% / 87% on target for clean clips).</li>
+<li>The encoder must see frames 1–8 only. Encoding the full clip (the Hugging Face default) leaks the true future into the context: swapping in a target clip's tokens then moves 16–31% of forecasts; with context-only encoding it moves 91–100%.</li>
+<li>Four edits: subspace or spline, applied to the pooled average or to each token.</li>
+</ul>
+</section>
+
+<section class="slide"><div class="num">11</div>
+<h2>Steering reaches the forecast only near the top of the encoder</h2>
+<img src="__f6_behavior_layers__" alt="Behavioral steering by layer">
+<ul>
+<li>Edits at layers 4–16 move the forecast by at most a few points, for every method, including transplanting the target's full average activation.</li>
+<li>Effects appear at layers 20–24.</li>
+</ul>
+<div class="take">Probe-level control at layer 12 is not control of the model.</div>
+</section>
+
+<section class="slide"><div class="num">12</div>
+<h2>The forecast depends on the token pattern, not the token average</h2>
+<img src="__f7_mean_vs_pattern__" alt="Mean vs pattern transplant">
+<ul>
+<li>Swap only a donor clip's token average: 0% of forecasts change (layers 0–20).</li>
+<li>Swap only its pattern (each token minus the average): 100% take the donor's motion at layers 0–8.</li>
+<li>Pooled probes and pooled steering operate on the average. The model reads the pattern.</li>
+</ul>
+</section>
+
+<section class="slide"><div class="num">13</div>
+<h2>Hitting a target: subspace steering at layer 24 is strongest</h2>
+<img src="__f8_behavior_final__" alt="Tuned comparison at layer 24">
+<ul>
+<li>Strength tuned on val. On target: pooled subspace 94% / 62% / 93% (direction / speed / acceleration); pooled spline 47–51%.</li>
+<li>Direction intact while steering speed: subspace 80%, per-token spline 83%, pooled spline 52% (90% before steering).</li>
+</ul>
+</section>
+
+<section class="slide"><div class="num">14</div>
+<h2>Paths: straight lines teleport, splines turn smoothly</h2>
+<img src="__f9_behavior_paths__" alt="Forecast direction along a 180° steering path">
+<ul>
+<li>Turn the forecast direction by 180° in 10 steps and check each intermediate forecast.</li>
+<li>Straight paths: 4–10% of intermediate forecasts at the intended direction. The forecast stays at the start, then jumps.</li>
+<li>Per-token spline path: 77%. Same edit, endpoints and subspace as the per-token straight path (7%); only the geometry differs.</li>
+<li>For 90° turns, or for speed and acceleration, straight paths do about as well.</li>
+</ul>
+<div class="take">The Goodfire claim holds behaviorally where the geometry is non-trivial: a circular variable and a large turn.</div>
+</section>
+
+<section class="slide"><div class="num">15</div>
+<h2>Conclusions</h2>
+<ul>
+<li>Kinematics are linearly readable from the first block, even in a random encoder; readability is not evidence of use.</li>
+<li>Each variable spans ~50–60 linear dimensions; the paper's sawtooth is an artefact.</li>
+<li>Same-layer steering success is near-circular. Judged by the predictor, pooled edits below layer 20 do nothing, because the model reads the token pattern, not the average.</li>
+<li>For a single target, subspace steering at the top of the encoder is strongest and most specific.</li>
+<li>For moving along a circular variable, spline paths avoid teleportation; per-token splines work best.</li>
+</ul>
+</section>
+
+<section class="slide"><div class="num">16</div>
+<h2>Limitations and next steps</h2>
+<ul>
+<li>Simple synthetic stimulus: flat 2D disk, one object. Speed and acceleration are confounded with displacement.</li>
+<li>Behavior readout is still a linear probe, on the predictor's output. It is fit only on unsteered forecasts.</li>
+<li>Most steering evaluations use one split; paper-protocol steering varies 3.5–14° across splits.</li>
+<li>Next: per-token steering restricted to disk tokens; distance-matched acceleration test; decoding the forecast into pixels.</li>
+</ul>
+</section>
+</main>
