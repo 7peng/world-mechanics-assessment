@@ -20,10 +20,12 @@ from src.model import T_TOK, hidden_states, load_encoder, preprocess
 ap = argparse.ArgumentParser()
 ap.add_argument("--random-init", action="store_true")
 ap.add_argument("--batch", type=int, default=8)
+ap.add_argument("--context-only", action="store_true", help="encode frames 1-8 only (the predictor's context)")
 ap.add_argument("--size", type=int, default=256, help="224 = input size stated in Joseph et al. App. C.6")
 args = ap.parse_args()
 
-tag = ("vjepa2_random" if args.random_init else "vjepa2") + ("" if args.size == 256 else f"_{args.size}")
+tag = ("vjepa2_random" if args.random_init else "vjepa2") + ("" if args.size == 256 else f"_{args.size}") + ("_ctx" if args.context_only else "")
+T_TOK_RUN = 4 if args.context_only else T_TOK
 out_dir = OUT / "features" / tag
 out_dir.mkdir(parents=True, exist_ok=True)
 model = load_encoder(random_init=args.random_init, size=args.size)
@@ -32,7 +34,7 @@ for name in DATASETS:
     df = load_manifest(name)
     means, tmeans = [], []
     for i in tqdm(range(0, len(df), args.batch), desc=f"{tag}/{name}"):
-        vids = np.stack([read_video(p) for p in df.video[i : i + args.batch]])
+        vids = np.stack([read_video(p)[:8] if args.context_only else read_video(p) for p in df.video[i : i + args.batch]])
         x = preprocess(vids)
         if args.size != 256:  # bicubic antialiased resize of the full frame (no crop)
             B, T, C, H, W = x.shape
@@ -41,6 +43,6 @@ for name in DATASETS:
         hs = torch.stack(hidden_states(model, x.cuda()), 1)  # [B, 25, N_tokens, D]
         B, L, N, D = hs.shape
         means.append(hs.mean(2).float().cpu())  # fp32: fp16 rounding is ~2-4% of cross-clip variance for random init
-        tmeans.append(hs.view(B, L, T_TOK, N // T_TOK, D).mean(3).half().cpu())
+        tmeans.append(hs.view(B, L, T_TOK_RUN, N // T_TOK_RUN, D).mean(3).half().cpu())
     np.savez(out_dir / f"{name}.npz", ids=df.id.values,
              mean=torch.cat(means).numpy(), tmean=torch.cat(tmeans).numpy())
