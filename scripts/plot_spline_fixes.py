@@ -23,7 +23,7 @@ plt.rcParams.update({"figure.facecolor": "white", "axes.facecolor": "#EAEAF2", "
                      "font.size": 11, "axes.titlesize": 12, "legend.frameon": False})
 A = json.loads((OUT / "results" / "steer_manifold_acc.json").read_text())
 F = json.loads((OUT / "results" / "spline_fixes.json").read_text())
-M = [("subspace", BLUE, "subspace steering"), ("spline", LIGHT, "spline, paper's version"), ("spline_disp", ORANGE, "spline, fixed")]
+M = [("subspace", BLUE, "subspace steering"), ("spline", LIGHT, "spline, naive (replace)"), ("spline_disp", ORANGE, "spline, shift along curve")]
 GROUPS = {"inside": [("seen", "seen"), ("heldout", "unseen")], "outside": [("ends", "outside")]}
 
 
@@ -47,7 +47,7 @@ for a, key, title in ((axes[0], "on", "reaches the target speed / acceleration")
         bars = a.bar(x + (i - 1) * w, vals, w * 0.92, color=col)
         for b, v in zip(bars, vals):
             a.text(b.get_x() + b.get_width() / 2, v + 1.5, f"{v:.0f}", ha="center", va="bottom", fontsize=9.5, color=DARK)
-    a.set_xticks(x); a.set_xticklabels(["target inside\nfitted range", "target outside\nfitted range"])
+    a.set_xticks(x); a.set_xticklabels(["interpolation", "extrapolation"])
     a.set_title(title); a.grid(axis="x", visible=False)
 axes[0].set_ylim(0, 110); axes[0].set_yticks([0, 25, 50, 75, 100]); axes[0].set_ylabel("% of steered clips")
 fig.legend(handles=[Patch(color=c, label=l) for _, c, l in M], loc="lower center", ncol=3, bbox_to_anchor=(0.5, -0.1))

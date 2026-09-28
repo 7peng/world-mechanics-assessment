@@ -128,11 +128,11 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 
 <section class="slide"><div class="num">9b</div>
 <h2>Both spline failures are fixable</h2>
-<img src="__f5b_spline_fixed__" alt="Subspace steering vs spline replace vs fixed spline">
+<img src="__f5b_spline_fixed__" alt="Subspace steering vs naive spline vs spline shifted along the curve">
 <ul>
 <li>Outside the range: the fitted curve was clamped at its ends. Extending it linearly past the ends fixes the extrapolation.</li>
 <li>Side effect: instead of replacing the top-64 PCA component, move the clip along the curve, x + s(target) − s(û), with û the clip's current value decoded by a probe. Everything else the clip encodes is kept.</li>
-<li>Fixed spline: 100% on target inside the fitted range, 92% outside; direction kept for 92% of clips, same as subspace steering. Averaged over speed and acceleration.</li>
+<li>Shift along curve: 100% on target for interpolation, 92% for extrapolation; direction kept for 92% of clips, same as subspace steering. Averaged over speed and acceleration.</li>
 </ul>
 <div class="take">With these fixes, spline steering matches subspace steering at the edited layer.</div>
 </section>
