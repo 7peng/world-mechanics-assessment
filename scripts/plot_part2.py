@@ -1,9 +1,4 @@
-"""Part 2 figure, f5_manifold_steering.png. Two panels, two methods.
-Left:  steering speed. x = how far the target is missed (relative to the unsteered probe's own error);
-       y = how much direction is disturbed. Ideal is the bottom-left corner.
-Right: steering speed to every label value, spline fit on the middle values only: error per target.
-       Shaded region = targets outside the fitted range.
-"""
+"""f5_manifold_steering.png from outputs/results/steer_manifold_acc.json (same-layer read-out, layer 12)."""
 import json
 import sys
 from pathlib import Path
@@ -14,52 +9,42 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 import numpy as np
 
 from src.data import OUT
 
-BLUE, ORANGE, DARK = "#1f77b4", "#ff7f0e", "#333333"
+VARS = ["direction", "speed", "acceleration"]
+BLUE, ORANGE, GRAY, DARK = "#1f77b4", "#ff7f0e", "#9a9a9a", "#333333"
 plt.rcParams.update({"figure.facecolor": "white", "axes.facecolor": "#EAEAF2", "axes.edgecolor": "white", "axes.linewidth": 0,
-                     "axes.grid": True, "grid.color": "white", "axes.spines.top": False, "axes.spines.right": False,
-                     "axes.spines.left": False, "axes.spines.bottom": False, "xtick.major.size": 0, "ytick.major.size": 0,
-                     "xtick.color": "#555", "ytick.color": "#555", "font.size": 9.5, "axes.titlesize": 10.5, "legend.frameon": False})
-S = json.loads((OUT / "results" / "steer_manifold.json").read_text())
-E = json.loads((OUT / "results" / "steer_ends_by_target.json").read_text())
-fig, axes = plt.subplots(1, 2, figsize=(10.5, 3.8))
-
-# left: target error vs side effect, speed and acceleration (seen + held-out conditions), one marker per case
-a = axes[0]
-for m, col, mk in (("clamp", BLUE, "o"), ("spline", ORANGE, "s")):
-    for n in ("speed", "acceleration"):
-        for cond in ("seen", "heldout"):
-            r = S[n][cond]
-            a.scatter(r["methods"][m]["to_target"] / r["probe_floor"], r["methods"][m]["theta_drift"], color=col, marker=mk, s=45, zorder=3)
-a.axhline(S["speed"]["seen"]["theta_floor"], color=DARK, ls=(0, (2, 2)), lw=1.1)
-a.text(0.02, S["speed"]["seen"]["theta_floor"] + 2, "direction error before steering", fontsize=8, color=DARK)
-a.axvline(1, color=DARK, ls=(0, (2, 2)), lw=1.1)
-a.text(1.02, 50, "probe's\nown error", fontsize=8, color=DARK)
-a.axhline(90, color="#999", lw=0.8); a.text(0.02, 91, "chance", fontsize=8, color="#777")
-a.set_xlim(0, 1.5); a.set_ylim(0, 100)
-a.set_xlabel("error to target (speed or acceleration), relative to the probe's own error")
-a.set_ylabel("direction error after steering (°)")
-a.set_title("both methods hit the target; only the spline erases direction")
-
-# right: error per target value, spline fit on the middle of the range only
-a = axes[1]
-rows = E["speed"]
-t = np.array([r[0] for r in rows]); e1 = np.array([r[1] for r in rows]); e2 = np.array([r[2] for r in rows]); held = np.array([r[3] for r in rows])
-lo, hi = t[~held].min(), t[~held].max()
-a.axvspan(t.min() - 0.05, lo, color="#d9d9d9", zorder=0); a.axvspan(hi, t.max() + 0.05, color="#d9d9d9", zorder=0)
-a.plot(t, e1, color=BLUE, lw=1.6); a.plot(t, e2, color=ORANGE, lw=1.6)
-a.axhline(S["speed"]["ends"]["probe_floor"], color=DARK, ls=(0, (2, 2)), lw=1.1)
-a.text(1.2, S["speed"]["ends"]["probe_floor"] + 0.01, "probe's own error", fontsize=8, color=DARK)
-a.text((t.min() + lo) / 2, 0.56, "not in\nspline fit", ha="center", fontsize=8, color="#555")
-a.text((hi + t.max()) / 2, 0.56, "not in\nspline fit", ha="center", fontsize=8, color="#555")
-a.set_xlim(t.min() - 0.05, t.max() + 0.05); a.set_ylim(0, 0.6)
-a.set_xlabel("target speed (m/s)"); a.set_ylabel("error to target (m/s)")
-a.set_title("spline fit on the middle of the range: it fails outside it")
-fig.legend(handles=[Line2D([], [], color=BLUE, lw=5, label="multi-probe subspace steering (Part 1)"),
-                    Line2D([], [], color=ORANGE, lw=5, label="spline steering (Part 2)")],
-           loc="lower center", ncol=2, bbox_to_anchor=(0.5, -0.06), borderaxespad=0)
-fig.tight_layout()
-fig.savefig(OUT / "figures" / "report" / "f5_manifold_steering.png", dpi=150, bbox_inches="tight", pad_inches=0.1)
+                     "axes.grid": True, "grid.color": "white", "axes.axisbelow": True, "axes.spines.top": False,
+                     "axes.spines.right": False, "axes.spines.left": False, "axes.spines.bottom": False,
+                     "xtick.major.size": 0, "ytick.major.size": 0, "xtick.color": "#555", "ytick.color": "#555",
+                     "font.size": 10, "axes.titlesize": 11, "legend.frameon": False})
+res = json.loads((OUT / "results" / "steer_manifold_acc.json").read_text())
+fig, axes = plt.subplots(1, 4, figsize=(13, 3.5), sharey=True, gridspec_kw={"width_ratios": [3, 3, 3, 2.4], "wspace": 0.1})
+w = 0.34
+x = np.arange(3)
+for a, n in zip(axes[:3], VARS):
+    for i, (m, col) in enumerate((("subspace", BLUE), ("spline", ORANGE))):
+        a.bar(x + (i - 0.5) * w, [res[n][c][m]["target_within"] for c in ("seen", "heldout", "ends")], w * 0.92, color=col)
+    a.axhline(res["chance"][n], color=GRAY, lw=1, ls=(0, (2, 2)))
+    a.set_xticks(x); a.set_xticklabels(["seen", "unseen", "outside\nrange"])
+    a.set_title(f"steering {n}")
+    a.grid(axis="x", visible=False)
+a = axes[3]
+x2 = np.arange(2)
+for i, (m, col) in enumerate((("subspace", BLUE), ("spline", ORANGE))):
+    a.bar(x2 + (i - 0.5) * w, [res[n]["seen"][m]["theta_kept_within"] for n in ("speed", "acceleration")], w * 0.92, color=col)
+for xi, n in zip(x2, ("speed", "acceleration")):
+    a.hlines(res[n]["seen"]["theta_unsteered_within"], xi - 0.4, xi + 0.4, color=DARK, lw=1.3)
+a.axhline(res["chance"]["direction"], color=GRAY, lw=1, ls=(0, (2, 2)))
+a.set_xticks(x2); a.set_xticklabels(["steering\nspeed", "steering\nacceleration"])
+a.set_title("direction left intact")
+a.grid(axis="x", visible=False)
+axes[0].set_ylim(0, 105); axes[0].set_yticks([0, 25, 50, 75, 100])
+axes[0].set_ylabel("% of clips")
+fig.legend(handles=[Patch(color=BLUE, label="subspace steering"), Patch(color=ORANGE, label="spline steering"),
+                    Line2D([], [], color=DARK, lw=1.3, label="before steering"), Line2D([], [], color=GRAY, ls=(0, (2, 2)), label="chance")],
+           loc="lower center", ncol=4, bbox_to_anchor=(0.5, -0.14))
+fig.savefig(OUT / "figures" / "report" / "f5_manifold_steering.png", dpi=150, bbox_inches="tight", pad_inches=0.15)
