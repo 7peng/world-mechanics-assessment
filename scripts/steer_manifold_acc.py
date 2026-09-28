@@ -88,7 +88,7 @@ plt.rcParams.update({"figure.facecolor": "white", "axes.facecolor": "#EAEAF2", "
                      "axes.grid": True, "grid.color": "white", "axes.spines.top": False, "axes.spines.right": False,
                      "axes.spines.left": False, "axes.spines.bottom": False, "xtick.major.size": 0, "ytick.major.size": 0,
                      "xtick.color": "#555", "ytick.color": "#555", "font.size": 9.5, "axes.titlesize": 10.5, "legend.frameon": False})
-fig, axes = plt.subplots(1, 4, figsize=(15, 3.6), sharey=True, gridspec_kw={"wspace": 0.12})
+fig, axes = plt.subplots(1, 4, figsize=(15, 3.8), sharey=True, gridspec_kw={"wspace": 0.12})
 w = 0.36
 x = np.arange(3)
 for a, n in zip(axes[:3], DATASETS):
@@ -96,8 +96,7 @@ for a, n in zip(axes[:3], DATASETS):
         a.bar(x + (i - 0.5) * w, [res[n][c][m]["target_within"] for c in ("seen", "heldout", "ends")], w, color=col)
     a.axhline(chance[n], color="#999", lw=0.9)
     a.set_xticks(x); a.set_xticklabels(["target seen\nin training", "target value\nnever seen", "target outside\nfitted range"])
-    tol = {"direction": "±15°", "speed": "±0.375 m/s", "acceleration": "±0.975 m/s²"}[n]
-    a.set_title(f"steering {n}: on target ({tol})")
+    a.set_title(f"steering {n}: on target")
 axes[0].set_ylabel("% of steered clips  (higher is better)")
 axes[0].set_ylim(0, 102)
 axes[0].text(2.45, chance["direction"] + 1.5, "chance", fontsize=8, color="#777", ha="right")
@@ -110,9 +109,11 @@ for xi, n in zip(x2, ("speed", "acceleration")):
 a.axhline(chance["direction"], color="#999", lw=0.9)
 a.text(-0.45, res["speed"]["seen"]["theta_unsteered_within"] + 1.5, "before steering", fontsize=8, color=DARK, ha="left", va="bottom")
 a.set_xticks(x2); a.set_xticklabels(["while steering\nspeed", "while steering\nacceleration"])
-a.set_title("direction unchanged (±15°)")
+a.set_title("direction unchanged")
 fig.legend(handles=[Line2D([], [], color=BLUE, lw=6, label="multi-probe subspace steering (Part 1)"),
                     Line2D([], [], color=ORANGE, lw=6, label="spline steering (Part 2)")],
-           loc="lower center", ncol=2, bbox_to_anchor=(0.5, -0.08), borderaxespad=0)
+           loc="lower center", ncol=2, bbox_to_anchor=(0.5, -0.1), borderaxespad=0)
+fig.text(0.5, -0.03, "on target = decoded within ±15° (direction), ±0.375 m/s (speed), ±0.975 m/s² (acceleration); 10% of each range",
+         ha="center", fontsize=8.5, color="#555")
 fig.tight_layout()
 fig.savefig(OUT / "figures" / "report" / "f5_manifold_steering.png", dpi=150, bbox_inches="tight", pad_inches=0.1)
