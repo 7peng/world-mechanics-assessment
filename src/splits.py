@@ -39,9 +39,26 @@ def make_splits(seed: int = 0) -> dict:
                 k = round(0.25 * len(ids))
                 vh["val"] += ids[:k].tolist()
                 vh["train"] += ids[k:].tolist()
+        # ends: lowest 8 and highest 8 values withheld (extrapolation test); direction: 8 values around 0° (wrap)
+        if name == "direction":
+            ends = set(uniq[:4].tolist() + uniq[-4:].tolist())
+        else:
+            ends = set(uniq[:8].tolist() + uniq[-8:].tolist())
+        ve = {"train": [], "val": [], "heldout_values": []}
+        rng_e = np.random.default_rng(seed + 1000 + DATASETS.index(name))   # separate stream: keeps the other splits unchanged
+        for u in uniq:
+            ids = rng_e.permutation(df.id.values[vals == u])
+            if u in ends:
+                ve["heldout_values"] += ids.tolist()
+            else:
+                k = round(0.25 * len(ids))
+                ve["val"] += ids[:k].tolist()
+                ve["train"] += ids[k:].tolist()
         splits[name] = {"primary": {k: sorted(v) for k, v in primary.items()},
                         "value_heldout": {k: sorted(v) for k, v in vh.items()},
-                        "heldout_values": sorted(held)}
+                        "heldout_values": sorted(held),
+                        "value_heldout_ends": {k: sorted(v) for k, v in ve.items()},
+                        "heldout_values_ends": sorted(ends)}
     return splits
 
 

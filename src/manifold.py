@@ -98,6 +98,24 @@ class Manifold:
         T = np.broadcast_to(T, Z.shape) if T.shape[0] == 1 else T
         return X - self.lift(Z) + self.lift(T)
 
+    def span(self, n_dims=None, n=500):
+        """Orthonormal basis (in PCA coords) of the subspace the curve moves in: top singular vectors of
+        the centred curve samples. n_dims defaults to the basis size of the curve."""
+        T = self.curve(self.u_grid(n))
+        T = T - T.mean(0)
+        U = np.linalg.svd(T, full_matrices=False)[2]
+        k = n_dims or (2 * self.K if self.name == "direction" else self.K + 3)
+        return U[:k].T                                                        # [k_pca, n_dims]
+
+    def steer_span(self, X, value, n_dims=None):
+        """Replace only the curve-span component of X with that of the curve point; everything else kept."""
+        S = self.span(n_dims)
+        Z = self.project(X)
+        T = self.point(value)
+        T = np.broadcast_to(T, Z.shape) if T.shape[0] == 1 else T
+        Zs = Z - (Z @ S) @ S.T + (T @ S) @ S.T
+        return X - self.lift(Z) + self.lift(Zs)
+
     def u_grid(self, n=2048):
         if self.name == "direction":
             return np.linspace(0, 2 * np.pi, n, endpoint=False)
