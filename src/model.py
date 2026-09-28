@@ -68,3 +68,12 @@ def run_from(model: VJEPA2Model, h: torch.Tensor, layer: int) -> torch.Tensor:
         h = blk(h, None)[0]
         pooled.append(h.mean(1))
     return torch.stack(pooled, 1)
+
+
+@torch.no_grad()
+def run_from_tokens(model: VJEPA2Model, h: torch.Tensor, layer: int) -> torch.Tensor:
+    """Continue from the residual stream after block `layer`; return the token-level residual stream
+    after block 24 (before the final LayerNorm), [B, N, D]."""
+    for blk in model.encoder.layer[layer:]:
+        h = blk(h, None)[0]
+    return h
