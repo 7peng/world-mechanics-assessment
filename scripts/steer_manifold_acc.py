@@ -35,8 +35,14 @@ dec = lambda n, p, X: angle_deg(p.predict(X)) if n == "direction" else p.predict
 within = lambda n, a, b: float((err(n, a, b) <= TOL[n]).mean() * 100)
 chance = {n: (2 * TOL[n] / RANGE[n]) * 100 for n in DATASETS}
 
-res = {"tolerance": TOL, "chance": chance}
-for name in DATASETS:
+RES = OUT / "results" / "steer_manifold_acc.json"
+if "--plot-only" in sys.argv and RES.exists():
+    res = json.loads(RES.read_text())
+    DATASETS_RUN = []
+else:
+    res = {"tolerance": TOL, "chance": chance}
+    DATASETS_RUN = DATASETS
+for name in DATASETS_RUN:
     df = load_manifest(name)
     lab = df[LABEL[name]].values
     y = targets(name, df)
@@ -73,7 +79,8 @@ for name in DATASETS:
             if keep:
                 r[m]["theta_kept_within"] = float(np.mean(keep))
         print(name, cond, {k: (round(v, 1) if isinstance(v, float) else {kk: round(vv, 1) for kk, vv in v.items()}) for k, v in r.items()}, flush=True)
-(OUT / "results" / "steer_manifold_acc.json").write_text(json.dumps(res, indent=1))
+if DATASETS_RUN:
+    RES.write_text(json.dumps(res, indent=1))
 
 # ---------------- figure
 BLUE, ORANGE, DARK = "#1f77b4", "#ff7f0e", "#333333"
@@ -81,7 +88,7 @@ plt.rcParams.update({"figure.facecolor": "white", "axes.facecolor": "#EAEAF2", "
                      "axes.grid": True, "grid.color": "white", "axes.spines.top": False, "axes.spines.right": False,
                      "axes.spines.left": False, "axes.spines.bottom": False, "xtick.major.size": 0, "ytick.major.size": 0,
                      "xtick.color": "#555", "ytick.color": "#555", "font.size": 9.5, "axes.titlesize": 10.5, "legend.frameon": False})
-fig, axes = plt.subplots(1, 4, figsize=(15, 3.6), sharey=True)
+fig, axes = plt.subplots(1, 4, figsize=(15, 3.6), sharey=True, gridspec_kw={"wspace": 0.12})
 w = 0.36
 x = np.arange(3)
 for a, n in zip(axes[:3], DATASETS):
@@ -89,8 +96,9 @@ for a, n in zip(axes[:3], DATASETS):
         a.bar(x + (i - 0.5) * w, [res[n][c][m]["target_within"] for c in ("seen", "heldout", "ends")], w, color=col)
     a.axhline(chance[n], color="#999", lw=0.9)
     a.set_xticks(x); a.set_xticklabels(["target seen\nin training", "target value\nnever seen", "target outside\nfitted range"])
-    a.set_title(f"steer {n}: % of clips landing within ±{TOL[n]:g}{'°' if n == 'direction' else ''}".replace("±0.375", "±0.375 m/s").replace("±0.975", "±0.975 m/s²"))
-axes[0].set_ylabel("% of steered clips (higher is better)")
+    tol = {"direction": "±15°", "speed": "±0.375 m/s", "acceleration": "±0.975 m/s²"}[n]
+    a.set_title(f"steering {n}: on target ({tol})")
+axes[0].set_ylabel("% of steered clips  (higher is better)")
 axes[0].set_ylim(0, 102)
 axes[0].text(2.45, chance["direction"] + 1.5, "chance", fontsize=8, color="#777", ha="right")
 a = axes[3]
@@ -100,9 +108,9 @@ for i, (m, col) in enumerate((("subspace", BLUE), ("spline", ORANGE))):
 for xi, n in zip(x2, ("speed", "acceleration")):
     a.hlines(res[n]["seen"]["theta_unsteered_within"], xi - 0.45, xi + 0.45, color=DARK, ls=(0, (2, 2)), lw=1.2)
 a.axhline(chance["direction"], color="#999", lw=0.9)
-a.text(1.45, res["speed"]["seen"]["theta_unsteered_within"] - 2, "before steering", fontsize=8, color=DARK, ha="right", va="top")
+a.text(-0.45, res["speed"]["seen"]["theta_unsteered_within"] + 1.5, "before steering", fontsize=8, color=DARK, ha="left", va="bottom")
 a.set_xticks(x2); a.set_xticklabels(["while steering\nspeed", "while steering\nacceleration"])
-a.set_title("direction preserved: % of clips still within ±15°")
+a.set_title("direction unchanged (±15°)")
 fig.legend(handles=[Line2D([], [], color=BLUE, lw=6, label="multi-probe subspace steering (Part 1)"),
                     Line2D([], [], color=ORANGE, lw=6, label="spline steering (Part 2)")],
            loc="lower center", ncol=2, bbox_to_anchor=(0.5, -0.08), borderaxespad=0)
