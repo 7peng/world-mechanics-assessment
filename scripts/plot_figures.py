@@ -114,8 +114,8 @@ for j, n in enumerate(VARS):
     if j == 1:
         b.set_xlabel("layer")
 axes[0, 0].set_ylabel("test R²")
-row_legend(axes[0, 2], [H(BLUE, "ours"), H(BLUE, "ours, per-patch median", ls=DASH), H(GRAY, "random init", ls=DOT)])
-row_legend(axes[1, 2], [H(BLUE, "ours"), H(GRAY, "random init", ls=DOT), H(GREEN, "centroid baseline")])
+row_legend(axes[0, 2], [H(BLUE, "mean-pooled tokens"), H(BLUE, "single patch (median of 256)", ls=DASH), H(GRAY, "mean-pooled, random-init encoder", ls=DOT)])
+row_legend(axes[1, 2], [H(BLUE, "mean-pooled tokens"), H(GRAY, "mean-pooled, random-init encoder", ls=DOT), H(GREEN, "disk-centroid trajectory baseline")])
 fig.tight_layout()
 save(fig, "f1_probes.png")
 
