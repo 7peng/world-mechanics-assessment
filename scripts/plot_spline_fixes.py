@@ -15,7 +15,7 @@ import numpy as np
 
 from src.data import OUT
 
-BLUE, LIGHT, ORANGE, DARK = "#1f77b4", "#ffbb78", "#ff7f0e", "#333333"
+BLUE, LIGHT, ORANGE, DARK = "#3a78b5", "#f2c9a0", "#e8702a", "#444444"
 plt.rcParams.update({"figure.facecolor": "white", "axes.facecolor": "#EAEAF2", "axes.edgecolor": "white", "axes.linewidth": 0,
                      "axes.grid": True, "grid.color": "white", "axes.axisbelow": True, "axes.spines.top": False,
                      "axes.spines.right": False, "axes.spines.left": False, "axes.spines.bottom": False,
@@ -38,17 +38,17 @@ def val(m, key, group):
     return float(np.mean(v))
 
 
-fig, axes = plt.subplots(1, 2, figsize=(10, 3.8), sharey=True, gridspec_kw={"wspace": 0.08})
-w = 0.26
-x = np.arange(2)
+fig, axes = plt.subplots(1, 2, figsize=(9.5, 3.6), sharey=True, gridspec_kw={"wspace": 0.06})
+w = 0.25
+x = np.arange(2) * 0.95
 for a, key, title in ((axes[0], "on", "reaches the target speed / acceleration"), (axes[1], "kept", "keeps the clip's direction")):
     for i, (m, col, _) in enumerate(M):
         vals = [val(m, key, g) for g in ("inside", "outside")]
-        bars = a.bar(x + (i - 1) * w, vals, w * 0.92, color=col)
+        bars = a.bar(x + (i - 1) * w, vals, w * 0.88, color=col, zorder=3)
         for b, v in zip(bars, vals):
-            a.text(b.get_x() + b.get_width() / 2, v + 1.5, f"{v:.0f}", ha="center", va="bottom", fontsize=9.5, color=DARK)
+            a.text(b.get_x() + b.get_width() / 2, v + 1.8, f"{v:.0f}%", ha="center", va="bottom", fontsize=9, color=DARK)
     a.set_xticks(x); a.set_xticklabels(["interpolation", "extrapolation"])
-    a.set_title(title); a.grid(axis="x", visible=False)
-axes[0].set_ylim(0, 110); axes[0].set_yticks([0, 25, 50, 75, 100]); axes[0].set_ylabel("% of steered clips")
-fig.legend(handles=[Patch(color=c, label=l) for _, c, l in M], loc="lower center", ncol=3, bbox_to_anchor=(0.5, -0.1))
+    a.set_title(title, pad=10); a.grid(axis="x", visible=False); a.tick_params(axis="x", labelsize=11, pad=6)
+axes[0].set_ylim(0, 112); axes[0].set_yticks([0, 25, 50, 75, 100]); axes[0].set_yticklabels(["0", "25", "50", "75", "100%"]); axes[0].set_ylabel("steered clips")
+fig.legend(handles=[Patch(color=c, label=l) for _, c, l in M], loc="lower center", ncol=3, bbox_to_anchor=(0.5, -0.09), handlelength=1.2, columnspacing=1.8)
 fig.savefig(OUT / "figures" / "report" / "f5b_spline_fixed.png", dpi=150, bbox_inches="tight", pad_inches=0.15)
