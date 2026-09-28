@@ -37,12 +37,12 @@ plt.rcParams.update({
     "axes.spines.top": False, "axes.spines.right": False, "axes.spines.left": False, "axes.spines.bottom": False,
     "xtick.major.size": 0, "ytick.major.size": 0, "xtick.color": "#555555", "ytick.color": "#555555",
     "axes.labelcolor": "#444444", "text.color": DARK,
-    "font.size": 9, "axes.titlesize": 11, "axes.titleweight": "bold", "axes.titlelocation": "center",
+    "font.size": 9, "axes.titlesize": 10.5, "axes.titleweight": "normal", "axes.titlelocation": "center",
     "axes.labelsize": 9, "xtick.labelsize": 8.5, "ytick.labelsize": 8.5,
-    "lines.linewidth": 1.6, "lines.markersize": 4,
+    "lines.linewidth": 1.5, "lines.markersize": 2.8,
     "legend.frameon": False, "legend.fontsize": 8.5, "legend.handlelength": 2.2,
 })
-MK = dict(marker="o", ms=4)
+MK = dict(marker="o", ms=2.8)
 
 
 def end_labels(ax, x, items, gap=0.06):
@@ -74,7 +74,7 @@ def row_legend(ax, handles):
 
 
 def title(fig, text):
-    fig.suptitle(text, x=0.01, ha="left", fontsize=12, fontweight="bold")
+    fig.suptitle(text, x=0.01, ha="left", fontsize=11.5)
 
 
 def save(fig, name, extra=()):
@@ -83,7 +83,7 @@ def save(fig, name, extra=()):
     plt.close(fig)
 
 
-H = lambda color, label, ls="-", marker="o", mfc=None, lw=1.6: Line2D([], [], color=color, ls=ls, marker=marker, ms=4, lw=lw,
+H = lambda color, label, ls="-", marker="o", mfc=None, lw=1.5: Line2D([], [], color=color, ls=ls, marker=marker, ms=2.8, lw=lw,
                                                                        mfc=color if mfc is None else mfc, label=label)
 
 # ---------------------------------------------------------------- F1 layer-wise probing
@@ -104,7 +104,7 @@ for j, n in enumerate(VARS):
     a.plot(X, [m["r2"] for m in r["vjepa2_random"]], color=GRAY, **MK)
     if n == "direction":
         a.plot(patch_layers, patch_med, color=BLUE, ls=(0, (1, 1.5)), **MK, mfc="white")
-    a.plot([1, 9], fig2c[n], "o", mfc="white", mec=DARK, ms=6, mew=1.3)
+    a.plot([1, 9], fig2c[n], "o", mfc="white", mec=DARK, ms=5, mew=1.2)
     a.set_xlim(-0.5, 24.5); a.set_ylim(0, 1.03); a.set_title(n); a.set_xticks([0, 4, 8, 12, 16, 20, 24])
     b = axes[1, j]
     b.plot(X[1:], [m[k] for m in r["vjepa2"]][1:], color=BLUE, **MK)
@@ -115,15 +115,15 @@ for j, n in enumerate(VARS):
         b.axhline(r["pixels"][k], color=GREEN, lw=1.2, ls=(0, (1, 2)))
     b.set_xticks([0, 4, 8, 12, 16, 20, 24]); b.set_ylabel(UNIT[n]); b.set_title(n)
     if j == 1:
-        b.set_xlabel("layer (0 = patch embedding; paper index = layer − 1)")
+        b.set_xlabel("layer")
 axes[0, 0].set_ylabel("test R²")
-row_legend(axes[0, 2], [H(BLUE, "ours (ridge, pooled)"), H(BLUE, "ours, per-patch median", ls=(0, (1, 1.5)), mfc="white"),
-                        H(ORANGE, "paper protocol, our data"), H(GRAY, "random-init encoder"),
-                        H(DARK, "paper, Fig. 2c (approx.)", ls="none", mfc="white")])
-row_legend(axes[1, 2], [H(BLUE, "ours (ridge, pooled)"), H(GRAY, "random-init encoder"),
-                        H(GREEN, "centroid-trajectory baseline", ls=(0, (4, 2)), marker="none"),
-                        H(GREEN, "pixel baseline (off-scale for speed, accel.)", ls=(0, (1, 2)), marker="none")])
-title(fig, "Layer-wise linear probing")
+row_legend(axes[0, 2], [H(BLUE, "ours"), H(BLUE, "ours, per-patch median", ls=(0, (1, 1.5)), mfc="white"),
+                        H(ORANGE, "paper protocol"), H(GRAY, "random init"),
+                        H(DARK, "paper, Fig. 2c", ls="none", mfc="white")])
+row_legend(axes[1, 2], [H(BLUE, "ours"), H(GRAY, "random init"),
+                        H(GREEN, "centroid baseline", ls=(0, (4, 2)), marker="none"),
+                        H(GREEN, "pixel baseline", ls=(0, (1, 2)), marker="none")])
+title(fig, "Layer-wise probing")
 fig.tight_layout()
 save(fig, "f1_probes.png")
 
@@ -138,23 +138,23 @@ for a, n in zip(axes[:3], VARS):
     a.plot(xr, m["probe"], color=BLUE, lw=1.6)
     a.plot(xr, m["random"], color=GRAY, lw=1.6)
     a.plot(xr, m["pca"], color=ORANGE, lw=1.6)
-    a.set_ylim(-0.05, 1.03); a.set_xlim(0, xr[-1]); a.set_title(f"{n}, layer {Lm}"); a.set_xlabel("dimensions removed")
-axes[0].set_ylabel("test R² of next probe")
+    a.set_ylim(-0.05, 1.03); a.set_xlim(0, xr[-1]); a.set_title(n); a.set_xlabel("dimensions removed")
+axes[0].set_ylabel(f"test R² of next probe, layer {Lm}")
 a = axes[3]
 for n in VARS:
     kk = 2 if n == "direction" else 1
     y = [kk * (80 if x is None else x) for x in inl["sweep"][n]["n_to_0.3"]]
     a.plot(range(25), y, color=C[n], **MK, label=n)
 a.set_xlim(-0.5, 24.5); a.set_ylim(0, 170); a.set_xticks([0, 4, 8, 12, 16, 20, 24])
-a.set_title("dims removed until val R² < 0.3"); a.set_xlabel("layer")
-a.text(4.5, 160, "at 160 / 80: never within budget", fontsize=7.5, color="#555555", va="center")
-leg1 = a.legend(handles=[H(BLUE, "probe directions (INLP)", marker="none"), H(GRAY, "random directions", marker="none"),
-                         H(ORANGE, "top principal components", marker="none")],
+a.set_title("dims until R² < 0.3"); a.set_xlabel("layer")
+a.text(4.5, 160, "160 / 80 = budget cap", fontsize=7.5, color="#555555", va="center")
+leg1 = a.legend(handles=[H(BLUE, "INLP directions", marker="none"), H(GRAY, "random directions", marker="none"),
+                         H(ORANGE, "top PCs", marker="none")],
                 loc="upper left", bbox_to_anchor=(1.04, 1.0), borderaxespad=0, title="left panels", title_fontsize=8.5)
 a.add_artist(leg1)
 a.legend(handles=[H(C[n], n) for n in VARS], loc="lower left", bbox_to_anchor=(1.04, 0.0), borderaxespad=0,
          title="right panel", title_fontsize=8.5)
-title(fig, "Iterative nullspace probing")
+title(fig, "Nullspace probing")
 fig.tight_layout()
 save(fig, "f2_nullspace.png", extra=[leg1])
 
@@ -175,11 +175,11 @@ for j, n in enumerate(VARS):
         tt = np.array([[x["to_target"] for x in r["steer"]] for r in st])
         a.plot(Np, tt.mean(0), color=ORANGE, **MK)
         a.fill_between(Np, tt.min(0), tt.max(0), color=ORANGE, alpha=0.15, lw=0)
-        a.plot([1, 2, 3, 5, 10, 15, 20], [77, 66, 61, 51, 24, 14, 11.9], "o", mfc="white", mec=DARK, ms=6, mew=1.3)
+        a.plot([1, 2, 3, 5, 10, 15, 20], [77, 66, 61, 51, 24, 14, 11.9], "o", mfc="white", mec=DARK, ms=5, mew=1.2)
     a.set_xticks([1, 3, 10, 30, 100]); a.set_xticklabels(["1", "3", "10", "30", "100"]); a.minorticks_off()
     a.set_title(n); a.set_ylabel(UNIT[n] + " to target")
     if j == 1:
-        a.set_xlabel(f"probes in steering subspace  (read out at layer {sp['layer']})")
+        a.set_xlabel(f"probes in subspace (read out at layer {sp['layer']})")
     b = axes[1, j]
     sprop = R(f"steer_propagate_{n}.json")
     c = sprop["conditions"]
@@ -191,13 +191,13 @@ for j, n in enumerate(VARS):
     b.plot(sprop["layers"], c[0]["to_truth"], color=DARK, ls=(0, (1, 1.5)), lw=1.2)
     b.set_xticks([12, 14, 16, 18, 20, 22, 24]); b.set_title(n); b.set_ylabel(UNIT[n] + " to target")
     if j == 1:
-        b.set_xlabel("read-out layer  (edit applied at layer 12, read out downstream)")
-row_legend(axes[0, 2], [H(BLUE, "steered → target"), H(BLUE, "steered → original label", ls=(0, (1, 1.5)), mfc="white"),
-                        H(GRAY, "random edit, same norm → target"), H(ORANGE, "paper protocol, layer 8 (3 splits; band = range)"),
-                        H(DARK, "paper, Fig. 24 (approx.)", ls="none", mfc="white")])
-row_legend(axes[1, 2], [Line2D([], [], color=BLUE, alpha=al, marker="o", ms=4, label=f"N = {Nn} probes") for Nn, al in ((1, 0.35), (5, 0.6), (20, 1.0))]
-           + [H(GRAY, "random edit, same norm"), H(DARK, "unsteered probe error (floor)", ls=(0, (1, 1.5)), marker="none")])
-title(fig, "Multi-probe subspace steering")
+        b.set_xlabel("read-out layer (edit at layer 12)")
+row_legend(axes[0, 2], [H(BLUE, "→ target"), H(BLUE, "→ original label", ls=(0, (1, 1.5)), mfc="white"),
+                        H(GRAY, "random edit"), H(ORANGE, "paper protocol, layer 8"),
+                        H(DARK, "paper, Fig. 24", ls="none", mfc="white")])
+row_legend(axes[1, 2], [Line2D([], [], color=BLUE, alpha=al, marker="o", ms=2.8, label=f"N = {Nn}") for Nn, al in ((1, 0.35), (5, 0.6), (20, 1.0))]
+           + [H(GRAY, "random edit"), H(DARK, "unsteered floor", ls=(0, (1, 1.5)), marker="none")])
+title(fig, "Subspace steering")
 fig.tight_layout()
 save(fig, "f3_steering.png")
 
