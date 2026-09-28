@@ -66,7 +66,7 @@ Conventions:
 - Test: orthogonal sequence with the paper's Adam probe (defines the projection) and, at every step, a ridge probe on the same residual. Direction, paper layer 8 (our 9), 60 probes.
 - Adam curves are jagged in every regime (step-to-step sd 8–11 points), most in small-data regimes (150 training clips at the paper's 8 directions). Ridge on the identical residual is smooth and monotone (sd 1–5). With a fixed seed for every probe, Adam falls to ~15% by probe 20 while ridge still reads 90%: the Adam probes are removing directions that carry little of the information.
 - With 1,000 epochs the Adam curve tracks ridge on average but stays jagged.
-- The regular period-2 alternation of the paper is not reproduced; the jaggedness is, and it is an optimisation artefact.
+- The regular period-2 alternation is reproduced exactly by one protocol variant (`sawtooth_mechanisms.json`): logging, for each probe, its accuracy and then its accuracy after its own directions are projected out of the test features. Interleaved, this gives 95 → 16 → 92 → 11 → 82 → 0 … (Adam) and 100 → 18 → 92 → 0 … (ridge): highs that decay slowly, lows near chance, lag-1 autocorrelation −0.5 to −0.7. The paper's stated procedure ("repeat until probe performance falls below threshold") evaluates performance after each projection, so this is a plausible source. Other variants tested (test features left unprojected, z-score/raw mismatch, alternating sin/cos rows) do not alternate (lag-1 autocorrelation +0.2 to +0.9).
 
 ## Experiment 3: subspace steering
 - **Paper protocol** (C.12, direction, target 90°, mean of 3 random 70/30 splits), at their layer 8 read as the output of block 8:
