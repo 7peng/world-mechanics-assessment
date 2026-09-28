@@ -80,6 +80,7 @@ footer{margin-top:40px;font-size:13.5px;color:var(--muted);border-top:1px solid 
   <li>Held-out target values: with every 4th label value withheld from all probes, steering held-out clips to unseen values is as accurate as to seen values (4.3° vs 4.3°; 0.088 vs 0.088 m/s; 0.23 vs 0.23 m/s² at 10 probes).</li>
   <li>Persistence of the edit downstream (component along Δ at layer 24): steering edit 0.07–0.10; a real clip-to-clip difference 0.08–0.11; a random edit of equal norm 0.02. The network attenuates offsets in general; it does not single out the steering edit.</li>
   <li>Displacement confound: within each set, distance travelled is fixed by the label. The acceleration probe applied to constant-velocity clips (true acceleration 0) predicts 6.8 m/s² on average and tracks distance travelled with r = 0.993. The paper's datasets have the same structure.</li>
+  <li>The paper's sawtooth (Fig. 4c): under its protocol our accuracy-within-15° curves are jagged too (step-to-step sd 8–11 points, worst with 150 training clips), but a ridge probe fit on the same residual at every step is smooth and monotone. A dip followed by a recovery is a failed fit; information cannot return after a projection.</li>
   <li>Cross-half generalisation: a direction probe trained on left-half patch tokens scores 0.81 (layer 1), 0.96 (layer 9) and 0.83 (layer 24) on right-half tokens.</li>
 </ul>
 <p class="note">Supplementary figures for these checks are in <code>outputs/figures/report/supp_*.png</code>.</p>
