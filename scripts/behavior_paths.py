@@ -40,6 +40,8 @@ ap.add_argument("--dataset", required=True)
 ap.add_argument("--layers", default="24,12")
 ap.add_argument("--n-test", type=int, default=64)
 ap.add_argument("--only", default=None, help="comma list of paths; merge into the existing json")
+ap.add_argument("--spans", default=None, help="direction spans, e.g. 180")
+ap.add_argument("--tag", default="", help="output file suffix")
 args = ap.parse_args()
 name = args.dataset
 TOL = {"direction": 15.0, "speed": 0.375, "acceleration": 0.975}[name]
@@ -60,12 +62,12 @@ tr, va, te = idx["train"], idx["val"], idx["test"][: args.n_test]
 readout = fit_readout(model, name, df, y, tr, va)
 Fp = load_features(name, "vjepa2_ctx").astype(np.float64)
 res = {"dataset": name, "tolerance": TOL, "waypoints": TS.tolist(), "layers": {}}
-out_path = OUT / "results" / f"behavior_paths_{name}.json"
+out_path = OUT / "results" / f"behavior_paths_{name}{args.tag}.json"
 PATHS = args.only.split(",") if args.only else ["subspace_linear", "chord", "spline", "shift", "token_spline", "token_chord"]
 NEED_TOKEN = any(m.startswith("token") for m in PATHS)
-if args.only:
+if args.only and out_path.exists():
     res = json.loads(out_path.read_text())
-spans = [90.0, 180.0] if name == "direction" else [None]
+spans = ([float(v) for v in args.spans.split(",")] if args.spans else [90.0, 180.0]) if name == "direction" else [None]
 for L in [int(v) for v in args.layers.split(",")]:
     sc = {m: FINAL["layers"][str(L)][m]["best_scale_on_val"] for m in ("pooled_subspace", "pooled_spline", "pooled_shift", "token_spline")}
     X = Fp[:, L]
@@ -140,17 +142,19 @@ for L in [int(v) for v in args.layers.split(",")]:
                 dec_paths[m].append(np.stack(per[m], 1))                          # [b, NW]
         ideal_all = np.concatenate(ideal_all)
         r = rL.setdefault(key, {})
+        r["ideal"] = ideal_all.round(2).tolist()
         for m, v in dec_paths.items():
             v = np.concatenate(v)
             e = err(v, ideal_all)
             r[m] = {"interior_on_path_pct": float((e[:, 1:-1] <= TOL).mean() * 100),
                     "endpoint_on_target_pct": float((e[:, -1] <= TOL).mean() * 100),
-                    "on_path_pct_by_waypoint": ((e <= TOL).mean(0) * 100).tolist()}
+                    "on_path_pct_by_waypoint": ((e <= TOL).mean(0) * 100).tolist(),
+                    "decoded": v.round(2).tolist()}
             if name == "direction":
                 r[m]["coherence_by_waypoint"] = np.abs(np.exp(1j * np.radians(v - ideal_all)).mean(0)).tolist()
             else:
                 r[m]["mean_decoded_by_waypoint"] = v.mean(0).tolist()
-        print(f"L{L} {key}", {m: (round(v['interior_on_path_pct'], 1), round(v['endpoint_on_target_pct'], 1)) for m, v in r.items()}, flush=True)
+        print(f"L{L} {key}", {m: (round(v['interior_on_path_pct'], 1), round(v['endpoint_on_target_pct'], 1)) for m, v in r.items() if m != "ideal"}, flush=True)
         out_path.write_text(json.dumps(res, indent=1))
     Bc = None
     torch.cuda.empty_cache()

@@ -115,22 +115,46 @@ if all((OUT / "results" / f"behavior_final_{n}.json").exists() for n in VARS):
     fig.savefig(FIG / "f8_behavior_final.png", dpi=150, bbox_inches="tight", pad_inches=0.1)
 
 # ---------------- f9: paths, direction +180°
-if (OUT / "results" / "behavior_paths_direction.json").exists():
-    P = R("behavior_paths_direction.json")
-    ts = np.array(P["waypoints"])
-    M9 = [("subspace_linear", BLUE, "-", "straight, subspace, pooled"), ("shift", ORANGE, "-", "curve, shift along curve, pooled"),
-          ("spline", LIGHT_ORANGE, "-", "curve, naive spline, pooled"),
-          ("token_chord", BLUE, DASH, "straight, per-token"), ("token_spline", ORANGE, DASH, "curve, shift along curve, per-token")]
-    Ls = [l for l in ("24", "12") if l in P["layers"] and "span180" in P["layers"][l] and "token_chord" in P["layers"][l]["span180"]]
-    fig, axes = plt.subplots(1, len(Ls), figsize=(4.6 * len(Ls), 3.3), sharey=True, squeeze=False)
-    for a, L in zip(axes[0], Ls):
+# one row per edit layer: forecast turn vs intended turn for single clips (3 methods), then % at the intended angle
+DEC = {L: OUT / "results" / f"behavior_paths_direction_decoded_L{L}.json" for L in ("24", "12")}
+if all(f.exists() for f in DEC.values()):
+    M9 = [("subspace_linear", BLUE, "-", "straight path, subspace, pooled"), ("shift", ORANGE, "-", "curve path, shift along curve, pooled"),
+          ("spline", LIGHT_ORANGE, "-", "curve path, naive spline, pooled"),
+          ("token_chord", BLUE, DASH, "straight path, per-token"), ("token_spline", ORANGE, DASH, "curve path, shift along curve, per-token")]
+    SHOW = [("subspace_linear", BLUE, "straight path"), ("shift", ORANGE, "curve path, pooled"), ("token_spline", ORANGE, "curve path, per-token")]
+    fig, axes = plt.subplots(2, 4, figsize=(13, 6.4), gridspec_kw={"width_ratios": [1, 1, 1, 1.25]})
+    for i, L in enumerate(("24", "12")):
+        P = R(DEC[L].name)["layers"][L]["span180"]
+        ideal = np.array(P["ideal"]); turn = np.linspace(0, 180, ideal.shape[1])
+        for j, (m, col, lab) in enumerate(SHOW):
+            a = axes[i, j]
+            d = np.array(P[m]["decoded"])
+            rel = (d - ideal[:, :1] + 90) % 360 - 90                                   # forecast turn, in [-90, 270)
+            a.fill_between(turn, turn - 15, turn + 15, color="white", lw=0)
+            a.plot(turn, turn, color=DARK, ls=DOT, lw=1.2)
+            for k in range(min(40, len(rel))):
+                a.plot(turn, rel[k], color=col, lw=0.7, alpha=0.35)
+            a.set_xlim(0, 180); a.set_ylim(-90, 270); a.set_xticks([0, 90, 180]); a.set_yticks([-90, 0, 90, 180, 270])
+            if i == 0:
+                a.set_title(lab)
+            if i == 1:
+                a.set_xlabel("intended turn (°)")
+            if j == 0:
+                a.set_ylabel(f"layer {L}\nforecast turn (°)")
+            else:
+                a.set_yticklabels([])
+        a = axes[i, 3]
         for m, col, ls, lab in M9:
-            if m in P["layers"][L]["span180"]:
-                a.plot(ts, P["layers"][L]["span180"][m]["on_path_pct_by_waypoint"], color=col, ls=ls)
-        a.set_ylim(0, 105); a.set_xlabel("path position (start → target)"); a.set_xticks([0, 0.5, 1]); a.set_xticklabels(["0°", "90°", "180°"])
-        a.set_title(f"layer {L}")
-    axes[0][0].set_ylabel("% at intended angle")
-    legend_below(fig, [Line2D([], [], color=c, ls=ls, label=l) for _, c, ls, l in M9], 2, y=-0.3)
+            a.plot(turn, P[m]["on_path_pct_by_waypoint"], color=col, ls=ls)
+        a.set_ylim(0, 105); a.set_xlim(0, 180); a.set_xticks([0, 90, 180])
+        a.set_ylabel("% within 15° of intended")
+        if i == 0:
+            a.set_title("summary")
+        if i == 1:
+            a.set_xlabel("intended turn (°)")
+    legend_below(fig, [Line2D([], [], color=DARK, ls=DOT, lw=1.2, label="ideal (±15° band)")]
+                 + [Line2D([], [], color=c, ls=ls, label=l) for _, c, ls, l in M9], 3, y=-0.07)
     fig.tight_layout()
     fig.savefig(FIG / "f9_behavior_paths.png", dpi=150, bbox_inches="tight", pad_inches=0.1)
+    plt.close(fig)
 print("ok")
