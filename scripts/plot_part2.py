@@ -1,8 +1,7 @@
-"""Part 2 figure: f5_manifold_steering.png.
-Row 1: error to target by condition (seen / held-out values / range ends) for clamp, spline replace,
-       interpolating spline, chord; probe floor as a line.
-Row 2: off-target θ drift when steering speed / acceleration (floor, clamp, spline replace, spline span-only);
-       decoded value along a source->target path for curve / chord / clamp against the ideal (one pair per variable).
+"""Part 2 figure, f5_manifold_steering.png. Two methods (multi-probe subspace steering vs spline steering).
+Panels 1-3: error to target in real units per variable, by condition (seen / held-out values / range ends).
+Panel 4:    direction read-out error while steering speed or acceleration (off-target drift).
+Panel 5:    how far steering-path waypoints sit from the data manifold, relative to unsteered clips.
 """
 import json
 import sys
@@ -19,69 +18,48 @@ import numpy as np
 from src.data import OUT
 
 VARS = ["direction", "speed", "acceleration"]
-UNIT = {"direction": "circular MAE (°)", "speed": "MAE (m/s)", "acceleration": "MAE (m/s²)"}
-BLUE, ORANGE, GREEN, RED, GRAY, DARK = "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#7f7f7f", "#333333"
+UNIT = {"direction": "error to target (°)", "speed": "error to target (m/s)", "acceleration": "error to target (m/s²)"}
+BLUE, ORANGE, DARK = "#1f77b4", "#ff7f0e", "#333333"
 plt.rcParams.update({"figure.facecolor": "white", "axes.facecolor": "#EAEAF2", "axes.edgecolor": "white", "axes.linewidth": 0,
                      "axes.grid": True, "grid.color": "white", "axes.spines.top": False, "axes.spines.right": False,
                      "axes.spines.left": False, "axes.spines.bottom": False, "xtick.major.size": 0, "ytick.major.size": 0,
-                     "xtick.color": "#555", "ytick.color": "#555", "font.size": 9, "axes.titlesize": 10.5, "legend.frameon": False,
-                     "lines.linewidth": 1.5})
+                     "xtick.color": "#555", "ytick.color": "#555", "font.size": 9.5, "axes.titlesize": 10.5, "legend.frameon": False})
 S = json.loads((OUT / "results" / "steer_manifold.json").read_text())
 P = json.loads((OUT / "results" / "steer_manifold_paths.json").read_text())
-METH = [("clamp", BLUE, "subspace clamp (Part 1)"), ("spline", ORANGE, "spline, replace PCA-64"),
-        ("spline_interp", RED, "interpolating spline (paper)"), ("chord", GREEN, "chord to nearest centroid")]
-CONDS = [("seen", "seen"), ("heldout", "held-out\nvalues"), ("ends", "range\nends")]
+fig, axes = plt.subplots(1, 5, figsize=(16, 3.5), gridspec_kw={"width_ratios": [1, 1, 1, 0.9, 0.9]})
+w = 0.36
+x = np.arange(3)
+for a, n in zip(axes[:3], VARS):
+    for i, (m, col) in enumerate((("clamp", BLUE), ("spline", ORANGE))):
+        a.bar(x + (i - 0.5) * w, [S[n][c]["methods"][m]["to_target"] for c in ("seen", "heldout", "ends")], w, color=col)
+    for xi, c in zip(x, ("seen", "heldout", "ends")):
+        a.hlines(S[n][c]["probe_floor"], xi - 0.45, xi + 0.45, color=DARK, ls=(0, (2, 2)), lw=1.2)
+    a.set_xticks(x); a.set_xticklabels(["seen\nvalues", "held-out\nvalues", "range\nends"]); a.set_ylabel(UNIT[n]); a.set_title(n)
+    a.set_ylim(0, {"direction": 8, "speed": 0.5, "acceleration": 1.2}[n])
+axes[0].text(2.45, S["direction"]["ends"]["probe_floor"] + 0.15, "unsteered probe error", fontsize=8, color=DARK, ha="right", va="bottom")
 
-fig, axes = plt.subplots(2, 3, figsize=(12.5, 6.4))
-for j, n in enumerate(VARS):
-    a = axes[0, j]
-    x = np.arange(len(CONDS))
-    w = 0.19
-    for i, (m, c, lab) in enumerate(METH):
-        vals = [S[n][cond]["methods"][m]["to_target"] for cond, _ in CONDS]
-        a.bar(x + (i - 1.5) * w, vals, w, color=c)
-    floors = [S[n][cond]["probe_floor"] for cond, _ in CONDS]
-    for xi, f in zip(x, floors):
-        a.hlines(f, xi - 0.42, xi + 0.42, color=DARK, ls=(0, (2, 2)), lw=1.2)
-    a.set_xticks(x); a.set_xticklabels([c for _, c in CONDS]); a.set_title(n); a.set_ylabel(UNIT[n] + " to target")
-    top = {"direction": 20, "speed": 0.6, "acceleration": 2.0}[n]
-    a.set_ylim(0, top)
-    for i, (m, c, lab) in enumerate(METH):          # clipped bars get their value printed
-        for k, (cond, _) in enumerate(CONDS):
-            v = S[n][cond]["methods"][m]["to_target"]
-            if v > top:
-                a.text(x[k] + (i - 1.5) * w, top * 0.97, f"{v:.1f}", ha="center", va="top", fontsize=7, color="white", rotation=90)
-axes[0, 2].legend(handles=[Line2D([], [], color=c, lw=6, label=l) for _, c, l in METH] + [Line2D([], [], color=DARK, ls=(0, (2, 2)), label="unsteered probe error")],
-                  loc="center left", bbox_to_anchor=(1.04, 0.5), borderaxespad=0)
+a = axes[3]
+x2 = np.arange(2)
+for i, (m, col) in enumerate((("clamp", BLUE), ("spline", ORANGE))):
+    a.bar(x2 + (i - 0.5) * w, [S[n]["seen"]["methods"][m]["theta_drift"] for n in ("speed", "acceleration")], w, color=col)
+for xi, n in zip(x2, ("speed", "acceleration")):
+    a.hlines(S[n]["seen"]["theta_floor"], xi - 0.45, xi + 0.45, color=DARK, ls=(0, (2, 2)), lw=1.2)
+a.axhline(90, color="#999", lw=0.8); a.text(1.45, 91, "chance", fontsize=8, color="#777", ha="right", va="bottom")
+a.set_xticks(x2); a.set_xticklabels(["while steering\nspeed", "while steering\nacceleration"]); a.set_ylim(0, 100)
+a.set_ylabel("direction error (°)"); a.set_title("side effect on direction")
 
-# off-target drift
-a = axes[1, 0]
-x = np.arange(2)
-items = [("theta_floor", DARK, "unsteered"), ("clamp", BLUE, "clamp"), ("spline", ORANGE, "spline, replace PCA-64"), ("spline_span", "#c49c00", "spline, curve span only")]
-w = 0.2
-for i, (m, c, lab) in enumerate(items):
-    vals = [S[n]["seen"]["theta_floor"] if m == "theta_floor" else S[n]["seen"]["methods"][m]["theta_drift"] for n in ("speed", "acceleration")]
-    a.bar(x + (i - 1.5) * w, vals, w, color=c)
-a.set_xticks(x); a.set_xticklabels(["steering speed", "steering acceleration"]); a.set_ylabel("θ read-out error (°)")
-a.set_title("off-target drift"); a.set_ylim(0, 100)
-a.legend(handles=[Line2D([], [], color=c, lw=6, label=l) for _, c, l in items], loc="upper left", fontsize=8)
-
-# paths
-pairs = {"direction": "0->90", "speed": "0.5->3.5", "acceleration": "1.0->9.0"}
-for j, n in enumerate(["speed", "direction"]):
-    a = axes[1, j + 1]
-    k = pairs[n]
-    ideal = P[n]["paths"]["ideal_example"][k]
-    ts = np.linspace(0, 1, len(ideal))
-    a.plot(ts, ideal, color=DARK, ls=(0, (2, 2)), lw=1.2)
-    for m, c in (("curve", ORANGE), ("chord", GREEN), ("clamp", BLUE)):
-        a.plot(ts, P[n]["paths"]["decoded_example"][f"{m}:{k}"], color=c)
-    a.set_xlabel("path position t"); a.set_ylabel({"direction": "decoded θ (°)", "speed": "decoded speed (m/s)"}[n])
-    a.set_title(f"{n}: path {k.replace('->', ' → ')}")
-    if n == "speed":
-        a.set_yscale("log"); a.set_yticks([0.5, 1, 2, 4]); a.set_yticklabels(["0.5", "1", "2", "4"]); a.minorticks_off()
-axes[1, 2].legend(handles=[Line2D([], [], color=ORANGE, label="along the curve"), Line2D([], [], color=GREEN, label="chord in PCA space"),
-                           Line2D([], [], color=BLUE, label="clamp coordinates"), Line2D([], [], color=DARK, ls=(0, (2, 2)), label="ideal (linear in u)")],
-                  loc="center left", bbox_to_anchor=(1.04, 0.5), borderaxespad=0)
+a = axes[4]
+for i, (m, col) in enumerate((("clamp", BLUE), ("curve", ORANGE))):
+    vals = [100 * P[n]["paths"][m]["off"] / P[n]["paths"]["unsteered_off_manifold"] for n in VARS]
+    a.bar(x + (i - 0.5) * w, vals, w, color=col)
+    if m == "curve":
+        for xi, v in zip(x, vals):
+            a.text(xi + 0.5 * w, 2, f"{v:.2f}%", ha="center", va="bottom", fontsize=8, color=ORANGE)
+a.axhline(100, color=DARK, ls=(0, (2, 2)), lw=1.2); a.text(2.45, 101, "unsteered clips", fontsize=8, color=DARK, ha="right", va="bottom")
+a.set_xticks(x); a.set_xticklabels(VARS); a.set_ylim(0, 120)
+a.set_ylabel("distance from manifold\n(% of unsteered clips)"); a.set_title("do steered activations lie on the manifold?")
+fig.legend(handles=[Line2D([], [], color=BLUE, lw=7, label="multi-probe subspace steering (Part 1)"),
+                    Line2D([], [], color=ORANGE, lw=7, label="spline steering (Part 2)")],
+           loc="lower center", ncol=2, bbox_to_anchor=(0.5, -0.08), borderaxespad=0)
 fig.tight_layout()
 fig.savefig(OUT / "figures" / "report" / "f5_manifold_steering.png", dpi=150, bbox_inches="tight", pad_inches=0.1)
