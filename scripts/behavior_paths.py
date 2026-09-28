@@ -8,6 +8,7 @@ Paths (edit after block L, multiplied by the strength tuned in behavior_final fo
   subspace_linear  multi-probe subspace steering, clamp coordinates interpolated linearly (Part 1 method)
   chord            PCA-64 component replaced by the straight line between the two curve points (paper's linear baseline)
   spline           PCA-64 component replaced by the curve point at the interpolated intrinsic coordinate (paper)
+  shift            pooled move along the curve: x + P[s(u(t)) - s(u_hat)]
   token_spline     per-position curves, displacement to the interpolated coordinate
   token_chord      per-position straight line between the two endpoints' curve points (token-level linear baseline)
 Metrics: % of interior waypoints whose forecast is within tolerance of the ideal intermediate value
@@ -38,6 +39,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--dataset", required=True)
 ap.add_argument("--layers", default="24,12")
 ap.add_argument("--n-test", type=int, default=64)
+ap.add_argument("--only", default=None, help="comma list of paths; merge into the existing json")
 args = ap.parse_args()
 name = args.dataset
 TOL = {"direction": 15.0, "speed": 0.375, "acceleration": 0.975}[name]
@@ -59,9 +61,13 @@ readout = fit_readout(model, name, df, y, tr, va)
 Fp = load_features(name, "vjepa2_ctx").astype(np.float64)
 res = {"dataset": name, "tolerance": TOL, "waypoints": TS.tolist(), "layers": {}}
 out_path = OUT / "results" / f"behavior_paths_{name}.json"
+PATHS = args.only.split(",") if args.only else ["subspace_linear", "chord", "spline", "shift", "token_spline", "token_chord"]
+NEED_TOKEN = any(m.startswith("token") for m in PATHS)
+if args.only:
+    res = json.loads(out_path.read_text())
 spans = [90.0, 180.0] if name == "direction" else [None]
 for L in [int(v) for v in args.layers.split(",")]:
-    sc = {m: FINAL["layers"][str(L)][m]["best_scale_on_val"] for m in ("pooled_subspace", "pooled_spline", "token_spline")}
+    sc = {m: FINAL["layers"][str(L)][m]["best_scale_on_val"] for m in ("pooled_subspace", "pooled_spline", "pooled_shift", "token_spline")}
     X = Fp[:, L]
     inlp = run_inlp(name, X.astype(np.float32), y, {"train": tr, "val": va}, 10, eval_splits=("val",))
     man = fit_manifold(name, X[tr], lab[tr], 64, "lsq", K_BASIS)
@@ -71,15 +77,16 @@ for L in [int(v) for v in args.layers.split(",")]:
     curve = Curve(name, "lsq", K_BASIS, lo, hi)
     Apinv = torch.from_numpy(np.linalg.pinv(curve.design(u_tr))).float().cuda()
     Bc = None
-    for s in range(0, len(tr), BS):
+    for s in (range(0, len(tr), BS) if NEED_TOKEN else []):
         h = encode_to(model, df, tr[s:s + BS], L).float()
         c = torch.einsum("kb,bnd->knd", Apinv[:, s:s + len(h)], h)
         Bc = c if Bc is None else Bc + c
     S = lambda u: torch.einsum("mk,knd->mnd", torch.from_numpy(curve.design(np.atleast_1d(u))).float().cuda(), Bc)
-    rL = res["layers"][str(L)] = {"scales": sc}
+    rL = res["layers"].setdefault(str(L), {})
+    rL.setdefault("scales", {}).update(sc)
     for D in spans:
         key = f"span{int(D)}" if D is not None else "range"
-        dec_paths = {m: [] for m in ("subspace_linear", "chord", "spline", "token_spline", "token_chord")}
+        dec_paths = {m: [] for m in PATHS}
         ideal_all = []
         for s in range(0, len(te), BS):
             rows = te[s:s + BS]
@@ -99,9 +106,11 @@ for L in [int(v) for v in args.layers.split(",")]:
             v_hat = dec(pool_probe, xL)
             if name != "direction":
                 v_hat = np.clip(v_hat, lab.min(), lab.max())
-            S_hat = S(coord(name, v_hat))
-            S0 = torch.cat([S(u_path[i, 0]) for i in range(len(rows))])
-            S1 = torch.cat([S(u_path[i, -1]) for i in range(len(rows))])
+            if NEED_TOKEN:
+                S_hat = S(coord(name, v_hat))
+                S0 = torch.cat([S(u_path[i, 0]) for i in range(len(rows))])
+                S1 = torch.cat([S(u_path[i, -1]) for i in range(len(rows))])
+            Zhat = man.curve(coord(name, v_hat))
             # clamp coordinates at each end (per clip for direction)
             V = inlp.Q[:, :10 * (2 if name == "direction" else 1)]
             c0 = np.stack([clamp_coords(inlp, 10, target_vec(name, float(v)))[1] for v in v0])
@@ -114,18 +123,23 @@ for L in [int(v) for v in args.layers.split(",")]:
                 d_sub = zc * inlp.sd + inlp.mu - xL
                 d_chord = man.lift((1 - t) * P0 + t * P1) - man.lift(Z)
                 d_spl = man.lift(np.stack([man.curve(u_path[i, j])[0] for i in range(len(rows))])) - man.lift(Z)
-                d_tok = torch.cat([S(u_path[i, j]) for i in range(len(rows))]) - S_hat
-                d_tch = (1 - t) * S0 + t * S1 - S_hat
+                d_shf = (man.curve(u_path[:, j]) - Zhat) @ man.P.T
+                if NEED_TOKEN:
+                    d_tok = torch.cat([S(u_path[i, j]) for i in range(len(rows))]) - S_hat
+                    d_tch = (1 - t) * S0 + t * S1 - S_hat
                 for m, d, scl in (("subspace_linear", torch.from_numpy(d_sub).float().cuda()[:, None], sc["pooled_subspace"]),
                                   ("chord", torch.from_numpy(d_chord).float().cuda()[:, None], sc["pooled_spline"]),
                                   ("spline", torch.from_numpy(d_spl).float().cuda()[:, None], sc["pooled_spline"]),
-                                  ("token_spline", d_tok, sc["token_spline"]),
-                                  ("token_chord", d_tch, sc["token_spline"])):
+                                  ("shift", torch.from_numpy(d_shf).float().cuda()[:, None], sc["pooled_shift"]),
+                                  ("token_spline", d_tok if NEED_TOKEN else None, sc["token_spline"]),
+                                  ("token_chord", d_tch if NEED_TOKEN else None, sc["token_spline"])):
+                    if m not in per:
+                        continue
                     per[m].append(dec(readout, forecast_from(model, h + scl * d, L)))
             for m in dec_paths:
                 dec_paths[m].append(np.stack(per[m], 1))                          # [b, NW]
         ideal_all = np.concatenate(ideal_all)
-        r = rL[key] = {}
+        r = rL.setdefault(key, {})
         for m, v in dec_paths.items():
             v = np.concatenate(v)
             e = err(v, ideal_all)
@@ -138,5 +152,5 @@ for L in [int(v) for v in args.layers.split(",")]:
                 r[m]["mean_decoded_by_waypoint"] = v.mean(0).tolist()
         print(f"L{L} {key}", {m: (round(v['interior_on_path_pct'], 1), round(v['endpoint_on_target_pct'], 1)) for m, v in r.items()}, flush=True)
         out_path.write_text(json.dumps(res, indent=1))
-    del Bc
+    Bc = None
     torch.cuda.empty_cache()

@@ -3,6 +3,7 @@
 Methods (edit to the context-encoder residual stream after block L, multiplied by a strength s):
   pooled_subspace  Part 1 multi-probe subspace steering on the pooled activation (INLP N = 10), delta added to every token
   pooled_spline    Part 2 pooled manifold: replace PCA-64 component with the curve point, delta added to every token
+  pooled_shift     Part 2 pooled manifold, move along the curve: x + P[s(target) - s(v_hat)], delta added to every token
   token_subspace   the same clamp per token, with a shared token-level INLP (N = 10) fit on individual tokens
   token_spline     per-position manifold: h_p += s_p(target) - s_p(u_hat), u_hat decoded by a pooled probe
 Strength s in {0.5, 1, 2, 4, 8}, chosen per (method, layer) on 64 VAL clips by % on target; reported on
@@ -34,11 +35,13 @@ ap.add_argument("--dataset", required=True)
 ap.add_argument("--layers", default="12,24")
 ap.add_argument("--n-val", type=int, default=64)
 ap.add_argument("--n-test", type=int, default=96)
+ap.add_argument("--only", default=None, help="comma list of methods; merge into the existing json")
 args = ap.parse_args()
 name = args.dataset
 LAYERS = [int(v) for v in args.layers.split(",")]
 SCALES = [0.5, 1.0, 2.0, 4.0, 8.0]
-METHODS = ["pooled_subspace", "pooled_spline", "token_subspace", "token_spline"]
+METHODS = args.only.split(",") if args.only else ["pooled_subspace", "pooled_spline", "pooled_shift", "token_subspace", "token_spline"]
+NEED_TOKEN = any(m.startswith("token") for m in METHODS)
 TOL = {"direction": 15.0, "speed": 0.375, "acceleration": 0.975}[name]
 TARGETS = {"direction": [0.0, 90.0, 180.0, 270.0], "speed": [0.5, 1.5, 2.5, 3.5], "acceleration": [1.0, 4.0, 7.0, 10.0]}[name]
 K = json.loads((OUT / "results" / "manifolds.json").read_text())[name]["K"]
@@ -59,6 +62,8 @@ Fp = load_features(name, "vjepa2_ctx").astype(np.float64)
 rng = np.random.default_rng(0)
 res = {"dataset": name, "tolerance": TOL, "targets": TARGETS, "scales": SCALES, "layers": {}}
 out_path = OUT / "results" / f"behavior_final_{name}.json"
+if args.only:
+    res = json.loads(out_path.read_text())
 
 # clean rates on the test clips
 clean_f = np.concatenate([forecast_from(model, encode_to(model, df, te[s:s + BS], 0), 0) for s in range(0, len(te), BS)])
@@ -75,23 +80,24 @@ for L in LAYERS:
     pool_probe = fit_ridge(X[va], y[va], alpha=1.0)
     # token-level INLP on sampled tokens of train clips (+ val tokens for alpha)
     toks, tys = [], []
-    for s in range(0, 320, BS):
+    for s in (range(0, 320, BS) if NEED_TOKEN else []):
         rows = tr[s:s + BS]
         h = encode_to(model, df, rows, L)
         sel = torch.from_numpy(np.stack([rng.choice(1024, TPC, replace=False) for _ in rows])).cuda()
         toks.append(torch.gather(h, 1, sel[..., None].expand(-1, -1, h.shape[-1])).float().cpu().numpy().reshape(-1, h.shape[-1]))
         tys.append(np.repeat(y[rows], TPC, axis=0))
-    Xt, yt = np.concatenate(toks), np.concatenate(tys)
-    ntr = int(0.8 * len(Xt))
-    tinlp = run_inlp(name, Xt, yt, {"train": np.arange(ntr), "val": np.arange(ntr, len(Xt))}, N_PROBES, eval_splits=("val",))
-    del Xt, toks
+    if NEED_TOKEN:
+        Xt, yt = np.concatenate(toks), np.concatenate(tys)
+        ntr = int(0.8 * len(Xt))
+        tinlp = run_inlp(name, Xt, yt, {"train": np.arange(ntr), "val": np.arange(ntr, len(Xt))}, N_PROBES, eval_splits=("val",))
+        del Xt, toks
     # per-position curves
     u_tr = coord(name, lab[tr])
     lo, hi = (0.0, 2 * np.pi) if name == "direction" else (u_tr.min(), u_tr.max())
     curve = Curve(name, "lsq", K, lo, hi)
     Apinv = torch.from_numpy(np.linalg.pinv(curve.design(u_tr))).float().cuda()
     Bc = None
-    for s in range(0, len(tr), BS):
+    for s in (range(0, len(tr), BS) if NEED_TOKEN else []):
         h = encode_to(model, df, tr[s:s + BS], L).float()
         c = torch.einsum("kb,bnd->knd", Apinv[:, s:s + len(h)], h)
         Bc = c if Bc is None else Bc + c
@@ -103,13 +109,16 @@ for L in LAYERS:
         V, c = clamp_coords(inlp, N_PROBES, target_vec(name, float(t)))
         d = {"pooled_subspace": torch.from_numpy(steer(inlp.z(xL), V, c) * inlp.sd + inlp.mu - xL).float().cuda()[:, None],
              "pooled_spline": torch.from_numpy(man.steer(xL, float(t)) - xL).float().cuda()[:, None]}
+        v_hat = dec(pool_probe, xL)
+        if name != "direction":
+            v_hat = np.clip(v_hat, lab.min(), lab.max())
+        d["pooled_shift"] = torch.from_numpy(man.shift(xL, float(t), v_hat) - xL).float().cuda()[:, None]
+        if not NEED_TOKEN:
+            return d
         H = h.double().cpu().numpy().reshape(-1, h.shape[-1])
         Vt, ct = clamp_coords(tinlp, N_PROBES, target_vec(name, float(t)))
         Z = tinlp.z(H)
         d["token_subspace"] = torch.from_numpy((steer(Z, Vt, ct) * tinlp.sd + tinlp.mu - H).reshape(h.shape)).float().cuda()
-        v_hat = dec(pool_probe, xL)
-        if name != "direction":
-            v_hat = np.clip(v_hat, lab.min(), lab.max())
         d["token_spline"] = S(coord(name, float(t))) - S(coord(name, v_hat))
         return d
 
@@ -134,7 +143,7 @@ for L in LAYERS:
     on_v, _ = evaluate(vsel)
     best = {m: max(SCALES, key=lambda sc: np.concatenate(on_v[m][sc]).mean()) for m in METHODS}
     on_t, kept_t = evaluate(te)
-    r = res["layers"][str(L)] = {}
+    r = res["layers"].setdefault(str(L), {})
     for m in METHODS:
         r[m] = {"best_scale_on_val": best[m],
                 "val_on_target_by_scale": {str(sc): float(np.concatenate(on_v[m][sc]).mean() * 100) for sc in SCALES},
@@ -145,5 +154,5 @@ for L in LAYERS:
             r[m]["test_direction_kept_by_scale"] = {str(sc): float(np.concatenate(kept_t[m][sc]).mean() * 100) for sc in SCALES}
     print(f"L{L}", {m: (r[m]["best_scale_on_val"], round(r[m]["on_target_pct"], 1), round(r[m].get("direction_kept_pct", -1), 1)) for m in METHODS}, flush=True)
     out_path.write_text(json.dumps(res, indent=1))
-    del Bc
+    Bc = None
     torch.cuda.empty_cache()

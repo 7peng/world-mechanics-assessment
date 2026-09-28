@@ -98,6 +98,11 @@ class Manifold:
         T = np.broadcast_to(T, Z.shape) if T.shape[0] == 1 else T
         return X - self.lift(Z) + self.lift(T)
 
+    def shift(self, X, value, v_hat):
+        """Move along the curve: X + P [s(value) - s(v_hat)], v_hat the clip's current value (e.g. probe readout).
+        Keeps everything in X except the step along the curve."""
+        return X + (self.point(value) - self.point(v_hat)) @ self.P.T
+
     def span(self, n_dims=None, n=500):
         """Orthonormal basis (in PCA coords) of the subspace the curve moves in: top singular vectors of
         the centred curve samples. n_dims defaults to the basis size of the curve."""
