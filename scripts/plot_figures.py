@@ -77,8 +77,8 @@ def title(fig, text):
     fig.suptitle(text, x=0.01, ha="left", fontsize=12, fontweight="bold")
 
 
-def save(fig, name):
-    fig.savefig(FIG / name, dpi=150, bbox_inches="tight", pad_inches=0.1)
+def save(fig, name, extra=()):
+    fig.savefig(FIG / name, dpi=150, bbox_inches="tight", pad_inches=0.1, bbox_extra_artists=list(extra))
     plt.close(fig)
 
 
@@ -155,7 +155,7 @@ a.legend(handles=[H(C[n], n) for n in VARS], loc="lower left", bbox_to_anchor=(1
          title="right panel", title_fontsize=8.5)
 title(fig, "Iterative nullspace probing")
 fig.tight_layout()
-save(fig, "f2_nullspace.png")
+save(fig, "f2_nullspace.png", extra=[leg1])
 
 # ---------------------------------------------------------------- F3 steering: same-layer and propagated
 sp = R("steer_pooled.json")
