@@ -75,45 +75,79 @@ cb.set_label("direction θ (°)"); cb.outline.set_visible(False)
 fig.savefig(OUT / "figures" / "report" / "rings.png", dpi=170, bbox_inches="tight", pad_inches=0.15)
 plt.close(fig)
 
-# ---------------- 3-D tube
+# ---------------- 3-D tube (depth cues: far segments thinner, fainter, drawn first)
 curve = man.curve(man.u_grid(400))
 ax1 = curve[-1] - curve[0]; ax1 /= np.linalg.norm(ax1)
 pos = (man.curve(u) - curve[0]) @ ax1
 pos = pos / pos.max() * 10
 bins = np.quantile(pos, np.linspace(0, 1, 9))
 TB = np.arange(0, 360, 22.5)
+ELEV, AZIM, ASPECT, LIM = 22, -38, (2.4, 1, 1), 2.2
+xr = (pos.min(), pos.max())
+view = np.array([np.cos(np.radians(ELEV)) * np.cos(np.radians(AZIM)), np.cos(np.radians(ELEV)) * np.sin(np.radians(AZIM)), np.sin(np.radians(ELEV))])
+
+
+def depth(P):
+    P = np.atleast_2d(P)
+    n = np.c_[(P[:, 0] - xr[0]) / (xr[1] - xr[0]) * ASPECT[0], (P[:, 1] + LIM) / (2 * LIM), (P[:, 2] + LIM) / (2 * LIM)]
+    return n @ view
+
+
+# reference depth range: the box corners
+corners = np.array([[x, y, z] for x in xr for y in (-LIM, LIM) for z in (-LIM, LIM)])
+dmin, dmax = depth(corners).min(), depth(corners).max()
+near = lambda P: np.clip((depth(P).mean() - dmin) / (dmax - dmin), 0, 1)       # 0 far, 1 near
+
+segments = []                                                                   # (nearness, xs, ys, zs, color, lw)
+for lo_, hi_ in zip(bins[:-1], bins[1:]):
+    m = (pos >= lo_) & (pos <= hi_)
+    ring = []
+    for tb in TB:
+        mm = m & (np.abs(((t_all - tb) + 180) % 360 - 180) <= 11.25)
+        if mm.sum() >= 2:
+            ring.append((pos[m].mean(), *R[mm].mean(0), tb))
+    ring = np.array(ring + ring[:1])
+    for a0, a1 in zip(ring[:-1], ring[1:]):
+        seg = np.stack([a0[:3], a1[:3]])
+        segments.append((near(seg), seg, col(a0[3]), "ring"))
 fig = plt.figure(figsize=(12, 5.2))
 for k, mode in enumerate(("naive", "shift along curve")):
-    a = fig.add_subplot(1, 2, k + 1, projection="3d")
-    a.scatter(pos, R[:, 0], R[:, 1], c=col(t_all), s=2, alpha=0.18, lw=0, depthshade=False)
-    for lo_, hi_ in zip(bins[:-1], bins[1:]):
-        m = (pos >= lo_) & (pos <= hi_)
-        ring = []
-        for tb in TB:
-            mm = m & (np.abs(((t_all - tb) + 180) % 360 - 180) <= 11.25)
-            if mm.sum() >= 2:
-                ring.append((pos[m].mean(), *R[mm].mean(0), tb))
-        ring = np.array(ring + ring[:1])
-        for (x0, y0, z0, t0), (x1, y1, z1, _) in zip(ring[:-1], ring[1:]):
-            a.plot([x0, x1], [y0, y1], [z0, z1], color=col(t0), lw=2.4)
-    a.plot([pos.min(), pos.max()], [0, 0], [0, 0], color=INK, lw=1.4)
+    a = fig.add_subplot(1, 2, k + 1, projection="3d", computed_zorder=False)
+    segs = list(segments)
+    ax_line = np.c_[np.linspace(*xr, 40), np.zeros(40), np.zeros(40)]
+    for j in range(39):
+        segs.append((near(ax_line[j:j + 2]), ax_line[j:j + 2], INK, "axis"))
     x_end = pos[np.abs(v_all - 3.5) <= 0.1].mean()
+    ends = []
     for i in pick:
-        ts = np.linspace(0, 1, 30)
+        ts = np.linspace(0, 1, 12)
         if mode == "naive":
             P = np.c_[pos[i] + ts * (x_end - pos[i]), R[i, 0] * (1 - ts), R[i, 1] * (1 - ts)]
         else:
-            P = np.c_[pos[i] + ts * (x_end - pos[i]), np.full(30, R[i, 0]), np.full(30, R[i, 1])]
-        a.plot(*P.T, color=INK, lw=1.0, alpha=0.8)
-        a.scatter(*P[0], s=30, color=col(t_all[i]), edgecolor=INK, lw=0.8, depthshade=False)
-        a.scatter(*P[-1], s=30, color=col(t_all[i]), marker="s", edgecolor=INK, lw=0.8, depthshade=False)
+            P = np.c_[pos[i] + ts * (x_end - pos[i]), np.full(40, R[i, 0]), np.full(40, R[i, 1])]
+        for j in range(len(P) - 1):
+            segs.append((near(P[j:j + 2]), P[j:j + 2], col(t_all[i]), "path"))
+        ends.append((near(P[0]), P[0], col(t_all[i]), "o"))
+        ends.append((near(P[-1]), P[-1], col(t_all[i]), "s"))
+    # faint clip cloud, depth-faded
+    dn = np.clip((depth(np.c_[pos, R]) - dmin) / (dmax - dmin), 0, 1)
+    cc = col(t_all).copy(); cc[:, 3] = 0.05 + 0.25 * dn
+    a.scatter(pos, R[:, 0], R[:, 1], c=cc, s=2, lw=0, depthshade=False, zorder=0)
+    items = sorted(segs + ends, key=lambda z: z[0])
+    for zi, (nr, P, c, kind) in enumerate(items):
+        if kind in ("o", "s"):
+            a.scatter(*P, s=18 + 30 * nr, color=c, marker=kind, edgecolor=INK, lw=0.8, alpha=0.4 + 0.6 * nr, depthshade=False, zorder=zi + 1)
+            continue
+        lw = {"ring": 0.8 + 2.4 * nr, "axis": 0.6 + 1.4 * nr, "path": 0.8 + 2.4 * nr}[kind]
+        al = 0.2 + 0.8 * nr
+        a.plot(*P.T, color=c, lw=lw, alpha=al, solid_capstyle="butt" if kind == "path" else "round", zorder=zi + 1)
     a.set_title(mode, color=INK)
     a.set_xlabel("along speed curve →", labelpad=-6); a.set_ylabel(""); a.set_zlabel("")
     a.set_xticks([]); a.set_yticks([]); a.set_zticks([])
     for ax_ in (a.xaxis, a.yaxis, a.zaxis):
         ax_.pane.set_facecolor(SOFT); ax_.pane.set_edgecolor("white"); ax_._axinfo["grid"]["color"] = "white"
-    a.view_init(elev=22, azim=-38); a.set_box_aspect((2.4, 1, 1))
-    a.set_ylim(-2.2, 2.2); a.set_zlim(-2.2, 2.2)
+    a.view_init(elev=ELEV, azim=AZIM); a.set_box_aspect(ASPECT)
+    a.set_xlim(*xr); a.set_ylim(-LIM, LIM); a.set_zlim(-LIM, LIM)
 sm = plt.cm.ScalarMappable(cmap=CM, norm=plt.Normalize(0, 360))
 cb = fig.colorbar(sm, ax=fig.axes, fraction=0.015, pad=0.02, ticks=[0, 90, 180, 270, 360]); cb.set_label("direction θ (°)"); cb.outline.set_visible(False)
 fig.savefig(OUT / "figures" / "report" / "rings_3d.png", dpi=170, bbox_inches="tight", pad_inches=0.15)
