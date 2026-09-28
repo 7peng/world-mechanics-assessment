@@ -23,16 +23,17 @@
    | spline, per-token | 66 | 56 | 46 |
 
    Direction intact while steering speed (clean 90%): pooled subspace 80, pooled spline 52, per-token spline 83. The paper's replace operation (pooled spline) damages direction in behavior too. At layer 12 (strengths ×2–8): per-token spline is best for direction (68% vs 42%).
-4. **The paper's central claim reproduces behaviorally for direction** (`f9_behavior_paths.png`, `behavior_paths_*`). Turning the forecast direction by 180° in 10 steps, % of intermediate waypoints whose forecast is at the intended intermediate direction:
+4. **The paper's central claim reproduces behaviorally for direction** (`f9_behavior_paths.png`, `behavior_paths_*`, 128 test clips). Turning the forecast direction by 180° in 10 steps, % of intermediate waypoints whose forecast is at the intended intermediate direction (±15°):
 
    | | layer 24 | layer 12 |
    |---|---:|---:|
-   | linear path, subspace steering | 4 | 6 |
-   | linear path, straight chord (paper's baseline) | 6 | 23 |
-   | spline path, pooled | 43 | 37 |
-   | spline path, per-token | **79** | **68** |
+   | straight path, pooled subspace steering (Part 1) | 4 | 7 |
+   | straight path, pooled chord (paper's baseline) | 10 | 20 |
+   | straight path, per-token | 7 | 16 |
+   | spline path, pooled (paper) | 44 | 35 |
+   | spline path, per-token | **77** | **64** |
 
-   The linear path keeps the source direction then jumps to the target ("teleportation"); the spline path passes through the intermediate directions. For 90° turns the straight line stays near the ring and linear is fine (83% vs 75%).
+   The straight-path forecasts keep the source direction, then jump to the target ("teleportation"). The per-token straight path and per-token spline path share the edit type, the endpoints and the subspace; only the path geometry differs (7% vs 77%). For 90° turns the straight line stays near the ring and is nearly as good (per-token 71% vs 78% at layer 24).
 5. For speed and acceleration (open curves, no wrap) there is no consistent path advantage; the pooled subspace method is best or tied on target accuracy.
 
 ## Conclusions

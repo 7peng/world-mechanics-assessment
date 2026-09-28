@@ -105,9 +105,9 @@ if all((OUT / "results" / f"behavior_final_{n}.json").exists() for n in VARS):
 if (OUT / "results" / "behavior_paths_direction.json").exists():
     P = R("behavior_paths_direction.json")
     ts = np.array(P["waypoints"])
-    M9 = [("subspace_linear", BLUE, "-", "linear path, subspace steering (Part 1)"), ("chord", BLUE, DASH, "linear path, straight chord (paper's baseline)"),
+    M9 = [("subspace_linear", BLUE, "-", "straight path, pooled subspace steering (Part 1)"), ("token_chord", BLUE, DASH, "straight path, per-token"),
           ("spline", ORANGE, "-", "spline path, pooled (paper)"), ("token_spline", ORANGE, DASH, "spline path, per-token")]
-    Ls = [l for l in ("24", "12") if l in P["layers"] and "span180" in P["layers"][l]]
+    Ls = [l for l in ("24", "12") if l in P["layers"] and "span180" in P["layers"][l] and "token_chord" in P["layers"][l]["span180"]]
     fig, axes = plt.subplots(1, len(Ls), figsize=(5.2 * len(Ls), 3.6), sharey=True, squeeze=False)
     for a, L in zip(axes[0], Ls):
         for m, col, ls, lab in M9:

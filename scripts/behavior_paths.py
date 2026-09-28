@@ -9,6 +9,7 @@ Paths (edit after block L, multiplied by the strength tuned in behavior_final fo
   chord            PCA-64 component replaced by the straight line between the two curve points (paper's linear baseline)
   spline           PCA-64 component replaced by the curve point at the interpolated intrinsic coordinate (paper)
   token_spline     per-position curves, displacement to the interpolated coordinate
+  token_chord      per-position straight line between the two endpoints' curve points (token-level linear baseline)
 Metrics: % of interior waypoints whose forecast is within tolerance of the ideal intermediate value
 (θ + D t; for speed and acceleration, interpolation in the curve's intrinsic coordinate), and for
 direction the mean resultant length of decoded angles (1 = coherent, 0 = no preferred direction).
@@ -78,7 +79,7 @@ for L in [int(v) for v in args.layers.split(",")]:
     rL = res["layers"][str(L)] = {"scales": sc}
     for D in spans:
         key = f"span{int(D)}" if D is not None else "range"
-        dec_paths = {m: [] for m in ("subspace_linear", "chord", "spline", "token_spline")}
+        dec_paths = {m: [] for m in ("subspace_linear", "chord", "spline", "token_spline", "token_chord")}
         ideal_all = []
         for s in range(0, len(te), BS):
             rows = te[s:s + BS]
@@ -99,6 +100,8 @@ for L in [int(v) for v in args.layers.split(",")]:
             if name != "direction":
                 v_hat = np.clip(v_hat, lab.min(), lab.max())
             S_hat = S(coord(name, v_hat))
+            S0 = torch.cat([S(u_path[i, 0]) for i in range(len(rows))])
+            S1 = torch.cat([S(u_path[i, -1]) for i in range(len(rows))])
             # clamp coordinates at each end (per clip for direction)
             V = inlp.Q[:, :10 * (2 if name == "direction" else 1)]
             c0 = np.stack([clamp_coords(inlp, 10, target_vec(name, float(v)))[1] for v in v0])
@@ -112,10 +115,12 @@ for L in [int(v) for v in args.layers.split(",")]:
                 d_chord = man.lift((1 - t) * P0 + t * P1) - man.lift(Z)
                 d_spl = man.lift(np.stack([man.curve(u_path[i, j])[0] for i in range(len(rows))])) - man.lift(Z)
                 d_tok = torch.cat([S(u_path[i, j]) for i in range(len(rows))]) - S_hat
+                d_tch = (1 - t) * S0 + t * S1 - S_hat
                 for m, d, scl in (("subspace_linear", torch.from_numpy(d_sub).float().cuda()[:, None], sc["pooled_subspace"]),
                                   ("chord", torch.from_numpy(d_chord).float().cuda()[:, None], sc["pooled_spline"]),
                                   ("spline", torch.from_numpy(d_spl).float().cuda()[:, None], sc["pooled_spline"]),
-                                  ("token_spline", d_tok, sc["token_spline"])):
+                                  ("token_spline", d_tok, sc["token_spline"]),
+                                  ("token_chord", d_tch, sc["token_spline"])):
                     per[m].append(dec(readout, forecast_from(model, h + scl * d, L)))
             for m in dec_paths:
                 dec_paths[m].append(np.stack(per[m], 1))                          # [b, NW]
