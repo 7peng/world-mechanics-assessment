@@ -41,7 +41,7 @@ def val(m, key, group):
 fig, axes = plt.subplots(1, 2, figsize=(9.5, 3.6), sharey=True, gridspec_kw={"wspace": 0.06})
 w = 0.25
 x = np.arange(2) * 0.95
-for a, key, title in ((axes[0], "on", "reaches the target speed / acceleration"), (axes[1], "kept", "keeps the clip's direction")):
+for a, key, title in ((axes[0], "on", "successes"), (axes[1], "kept", "direction retention")):
     for i, (m, col, _) in enumerate(M):
         vals = [val(m, key, g) for g in ("inside", "outside")]
         bars = a.bar(x + (i - 1) * w, vals, w * 0.88, color=col, zorder=3)
