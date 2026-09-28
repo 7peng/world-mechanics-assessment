@@ -96,8 +96,26 @@ if all((OUT / "results" / f"behavior_final_{n}.json").exists() for n in VARS):
         a.hlines(Fs[n]["clean"]["direction_kept_pct"], xi - 0.45, xi + 0.45, color=DARK, ls=DASH)
     a.set_xticks(x); a.set_xticklabels(["steering speed", "steering acceleration"]); a.set_ylim(0, 105)
     a.set_ylabel("% of forecasts with direction intact"); a.set_title("leaves direction intact")
-    legend_below(fig, [plt.Rectangle((0, 0), 1, 1, color=c, hatch=h, ec="white", lw=0, label=l) for _, c, h, l in M]
+    legend_below(fig, [plt.Rectangle((0, 0), 1, 1, fc=c, hatch=h, ec="white", lw=0.8, label=l) for _, c, h, l in M]
                  + [Line2D([], [], color=GRAY, ls=DOT, label="no steering"), Line2D([], [], color=DARK, ls=DASH, label="direction intact before steering")], 3, y=-0.14)
     fig.tight_layout()
     fig.savefig(FIG / "f8_behavior_final.png", dpi=150, bbox_inches="tight", pad_inches=0.1)
+
+# ---------------- f9: paths, direction +180°
+if (OUT / "results" / "behavior_paths_direction.json").exists():
+    P = R("behavior_paths_direction.json")
+    ts = np.array(P["waypoints"])
+    M9 = [("subspace_linear", BLUE, "-", "linear path, subspace steering (Part 1)"), ("chord", BLUE, DASH, "linear path, straight chord (paper's baseline)"),
+          ("spline", ORANGE, "-", "spline path, pooled (paper)"), ("token_spline", ORANGE, DASH, "spline path, per-token")]
+    Ls = [l for l in ("24", "12") if l in P["layers"] and "span180" in P["layers"][l]]
+    fig, axes = plt.subplots(1, len(Ls), figsize=(5.2 * len(Ls), 3.6), sharey=True, squeeze=False)
+    for a, L in zip(axes[0], Ls):
+        for m, col, ls, lab in M9:
+            a.plot(ts, P["layers"][L]["span180"][m]["on_path_pct_by_waypoint"], color=col, ls=ls)
+        a.set_ylim(0, 105); a.set_xlabel("position along the steering path (0 = start, 1 = target)")
+        a.set_title(f"turning direction by 180°, edit at layer {L}")
+    axes[0][0].set_ylabel("% of forecasts at the intended\nintermediate direction (±15°)")
+    legend_below(fig, [Line2D([], [], color=c, ls=ls, label=l) for _, c, ls, l in M9], 2, y=-0.2)
+    fig.tight_layout()
+    fig.savefig(FIG / "f9_behavior_paths.png", dpi=150, bbox_inches="tight", pad_inches=0.1)
 print("ok")
