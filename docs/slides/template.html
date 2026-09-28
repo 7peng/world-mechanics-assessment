@@ -128,6 +128,8 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 
 <section class="slide"><div class="num">9b</div>
 <h2>Both spline failures are fixable</h2>
+<img src="__shift_vs_replace__" alt="Naive replacement collapses clips to one point; shifting along the curve moves them together">
+<img src="__manifold_extrapolation__" alt="Curve fit on middle values, clamped vs linearly extended, with withheld end centroids">
 <img src="__f5b_spline_fixed__" alt="Subspace steering vs naive spline vs spline shifted along the curve">
 <ul>
 <li>Outside the range: the fitted curve was clamped at its ends. Extending it linearly past the ends fixes the extrapolation.</li>
