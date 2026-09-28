@@ -68,6 +68,8 @@ Conventions:
 - With 1,000 epochs the Adam curve tracks ridge on average but stays jagged.
 - The regular period-2 alternation is reproduced exactly by one protocol variant (`sawtooth_mechanisms.json`): logging, for each probe, its accuracy and then its accuracy after its own directions are projected out of the test features. Interleaved, this gives 95 → 16 → 92 → 11 → 82 → 0 … (Adam) and 100 → 18 → 92 → 0 … (ridge): highs that decay slowly, lows near chance, lag-1 autocorrelation −0.5 to −0.7. The paper's stated procedure ("repeat until probe performance falls below threshold") evaluates performance after each projection, so this is a plausible source. Other variants tested (test features left unprojected, z-score/raw mismatch, alternating sin/cos rows) do not alternate (lag-1 autocorrelation +0.2 to +0.9).
 
+- Blog (soniajoseph.ai/interpreting-ph): "the second probe tends to latch onto the complementary cosine component (which by itself can no longer faithfully encode direction), rather than moving on to a new independent direction." This implies one direction removed per step. Tested: removing only the sin column, or the top singular vector of W_k, gives 100 → 95 → 95 → 89 … (lag-1 autocorrelation +0.85 to +0.88), no alternation. A refit probe uses everything that remains, so it cannot score below what its inputs allow; the blog mechanism requires exactly that.
+
 ## Experiment 3: subspace steering
 - **Paper protocol** (C.12, direction, target 90°, mean of 3 random 70/30 splits), at their layer 8 read as the output of block 8:
 
