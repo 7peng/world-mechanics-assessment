@@ -81,7 +81,7 @@ ax1 = curve[-1] - curve[0]; ax1 /= np.linalg.norm(ax1)
 pos = (man.curve(u) - curve[0]) @ ax1
 pos = pos / pos.max() * 10
 bins = np.quantile(pos, np.linspace(0, 1, 9))
-TB = np.arange(0, 360, 22.5)
+TB = np.arange(0, 360, 15.0)
 ELEV, AZIM, ASPECT, LIM = 22, -38, (2.4, 1, 1), 2.2
 xr = (pos.min(), pos.max())
 view = np.array([np.cos(np.radians(ELEV)) * np.cos(np.radians(AZIM)), np.cos(np.radians(ELEV)) * np.sin(np.radians(AZIM)), np.sin(np.radians(ELEV))])
@@ -103,13 +103,11 @@ for lo_, hi_ in zip(bins[:-1], bins[1:]):
     m = (pos >= lo_) & (pos <= hi_)
     ring = []
     for tb in TB:
-        mm = m & (np.abs(((t_all - tb) + 180) % 360 - 180) <= 11.25)
+        mm = m & (np.abs(((t_all - tb) + 180) % 360 - 180) <= 7.5)
         if mm.sum() >= 2:
             ring.append((pos[m].mean(), *R[mm].mean(0), tb))
-    ring = np.array(ring + ring[:1])
-    for a0, a1 in zip(ring[:-1], ring[1:]):
-        seg = np.stack([a0[:3], a1[:3]])
-        segments.append((near(seg), seg, col(a0[3]), "ring"))
+    for r0 in ring:
+        segments.append((near(np.array(r0[:3])), np.array(r0[:3]), col(r0[3]), "dot"))
 fig = plt.figure(figsize=(12, 5.2))
 for k, mode in enumerate(("naive", "shift along curve")):
     a = fig.add_subplot(1, 2, k + 1, projection="3d", computed_zorder=False)
@@ -135,6 +133,9 @@ for k, mode in enumerate(("naive", "shift along curve")):
     a.scatter(pos, R[:, 0], R[:, 1], c=cc, s=2, lw=0, depthshade=False, zorder=0)
     items = sorted(segs + ends, key=lambda z: z[0])
     for zi, (nr, P, c, kind) in enumerate(items):
+        if kind == "dot":
+            a.scatter(*P, s=8 + 34 * nr, color=c, lw=0, alpha=0.25 + 0.75 * nr, depthshade=False, zorder=zi + 1)
+            continue
         if kind in ("o", "s"):
             a.scatter(*P, s=18 + 30 * nr, color=c, marker=kind, edgecolor=INK, lw=0.8, alpha=0.4 + 0.6 * nr, depthshade=False, zorder=zi + 1)
             continue
