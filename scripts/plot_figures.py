@@ -235,18 +235,17 @@ a.set_xlim(0, 1.3); a.set_ylim(0, 85)
 items = []
 for n in ["speed", "acceleration"]:
     d = sc[n]
-    a.plot(np.array(d["label_values"]) / max(d["label_values"]), d["mean_displacement_px"], color=C[n], marker="o", ms=2.5)
+    a.plot(np.array(d["label_values"]) / max(d["label_values"]), d["mean_displacement_px"], color=C[n])
     items.append((d["mean_displacement_px"][-1], f"{n} set", C[n]))
 end_labels(a, 1.0, items)
 a.axhline(22, color=GRAY, lw=0.9, ls=(0, (2, 2))); a.text(0.02, 24, "disk diameter", color=GRAY, fontsize=7.5)
-a.set_xlabel("label / max label"); a.set_ylabel("distance travelled (px)"); a.set_title("displacement is fixed by the label")
+a.set_xlabel("label / max label"); a.set_ylabel("distance travelled (px)"); a.set_title("distance travelled vs label")
 b = axes[1]
 b.set_xlim(0, 85); b.set_ylim(0, 14)
 b.scatter(disp, pred, s=6, color=C["acceleration"], alpha=0.5, lw=0)
-b.set_xlabel("distance travelled (px), constant-velocity clips"); b.set_ylabel("predicted acceleration (m/s²)")
-b.set_title(f"acceleration probe on clips with zero acceleration (layer {Lc})")
-b.text(3, 12.6, f"true value 0 for every clip\nr = {sc['confound']['corr_with_displacement']:.3f} with displacement", fontsize=7.5, color=DARK)
-title(fig, "The acceleration probe reads displacement")
+b.set_xlabel("distance travelled (px)"); b.set_ylabel("predicted acceleration (m/s²)")
+b.set_title("acceleration probe, constant-speed clips")
+b.text(3, 12.6, f"true acceleration = 0\nr = {sc['confound']['corr_with_displacement']:.2f}", fontsize=8.5, color=DARK)
 fig.tight_layout()
 save(fig, "supp_confound.png")
 print("wrote", sorted(p.name for p in FIG.glob("*.png")))

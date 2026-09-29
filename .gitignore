@@ -9,3 +9,4 @@ wandb/
 *.ckpt
 *.pt
 papers/
+logs/
